@@ -560,6 +560,7 @@ async function readSerial(){
       buf+=dec.decode(value);
       const lines=buf.split('\n');buf=lines.pop();
       for(const ln of lines){
+        console.log(ln)
         try{
           const pkt=JSON.parse(ln.trim());
           if(pkt.type==='eeg'){
