@@ -219,7 +219,7 @@
       <div class="emo-emoji" id="emoEmoji">🧠</div>
       <div class="emo-body">
         <div class="emo-label" id="emoLabel">Connect to begin</div>
-        <div class="emo-desc"  id="emoDesc">Plug in your Arduino and click Connect Arduino, or try Demo mode.</div>
+        <div class="emo-desc"  id="emoDesc">Plug in your Maker UNO X and click Connect Maker UNO X, or try Demo mode.</div>
         <div class="conf-track"><div class="conf-fill" id="confFill"></div></div>
       </div>
       <div class="conf-meta">
@@ -278,7 +278,7 @@
     </div>
 
     <div class="footer">
-      EmotiWave &nbsp;·&nbsp; Arduino UNO R3 + Cytron Maker Uno X &nbsp;·&nbsp;
+      EmotiWave &nbsp;·&nbsp; Maker UNO X + BioAmp EXG Pill &nbsp;·&nbsp;
       Requires <a href="https://caniuse.com/web-serial" target="_blank" rel="noopener">Web Serial API</a>
       (Chrome / Edge) &nbsp;·&nbsp;
       <a href="https://github.com" target="_blank" rel="noopener">Source on GitHub</a>
@@ -581,11 +581,11 @@ function stopAll(){
   if(port){try{port.close();}catch(e){}port=null;}
   ring=[];stepAcc=0;demoT=0;demoPhase=0;demoPhaseSamp=0;pktCount=0;srCount=0;
   BAND_ORDER.forEach(b=>bandHist[b]=[]);
-  emoHist=[];curEmo={emoji:'🧠',label:'Connect to begin',color:'#888',desc:'Plug in your Arduino and click Connect Arduino, or try Demo mode.',conf:0,bp:{}};
+  emoHist=[];curEmo={emoji:'🧠',label:'Connect to begin',color:'#888',desc:'Plug in your Maker UNO X and click Connect Maker UNO X, or try Demo mode.',conf:0,bp:{}};
   document.getElementById('statusDot').className='dot';
   document.getElementById('statusTxt').textContent='Disconnected';
   document.getElementById('connectBtn').className='btn';
-  document.getElementById('connectBtn').innerHTML='<i class="ti ti-usb" aria-hidden="true"></i> Connect Arduino';
+  document.getElementById('connectBtn').innerHTML='<i class="ti ti-usb" aria-hidden="true"></i> Connect Maker UNO X';
   document.getElementById('statPkt').textContent='0';
   document.getElementById('statSR').textContent='—';
   document.getElementById('statDom').textContent='—';
@@ -599,7 +599,7 @@ if(!('serial' in navigator))document.getElementById('noSerial').className='no-se
 
 // ── Init render ────────────────────────────────────────────────────────────
 document.getElementById('emoLabel').textContent='Connect to begin';
-document.getElementById('emoDesc').textContent='Plug in your Arduino and click Connect Arduino, or try Demo mode.';
+document.getElementById('emoDesc').textContent='Plug in your Maker UNO X and click Connect Maker UNO X, or try Demo mode.';
 window.addEventListener('load',()=>{drawWave();drawRadar();drawHist();});
 window.addEventListener('resize',()=>{if(!running){drawWave();drawRadar();drawHist();}});
 </script>
