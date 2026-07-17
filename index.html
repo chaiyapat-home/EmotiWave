@@ -259,33 +259,42 @@ function isDom(bp, b) {
 
 const RULES = [
   [
-    bp => rel(bp,'beta') > 0.05 && rel(bp,'gamma') > 0.03 && bp.alpha < bp.beta,
+    // Stressed: beta AND gamma both elevated, alpha below both.
+    // Threshold relaxed to 0.03 so the co-elevated pair (which splits
+    // the excess between two bands) can still trigger.
+    bp => rel(bp,'beta') > 0.03 && rel(bp,'gamma') > 0.03 && bp.alpha < bp.beta && bp.alpha < bp.gamma,
     'Stressed / Anxious', '😰', '#ef4444',
     'Beta & gamma both above average, alpha suppressed — Sisode: low alpha = non-relaxed; Li/Chao/Zhang: high beta = stress'
   ],
   [
-    bp => rel(bp,'gamma') > 0.04 && bp.gamma > bp.beta && rel(bp,'alpha') > 0,
+    // Excited: gamma is the single dominant band. Removed the old
+    // "alpha above average" requirement — when gamma dominates strongly
+    // it pushes alpha below average, which was causing gamma-dominant
+    // signals to fall through to Neutral. (Li/Chao/Zhang: gamma = happiness.)
+    bp => isDom(bp,'gamma') && rel(bp,'gamma') > 0.05,
     'Excited / Happy', '😄', '#eab308',
-    'Gamma dominant with elevated alpha — Li/Chao/Zhang: gamma linked to happiness & stress relief'
+    'Gamma dominant — Li/Chao/Zhang: gamma linked to happiness & stress relief'
   ],
   [
-    bp => rel(bp,'beta') > 0.04 && isDom(bp,'beta') && bp.theta < bp.alpha,
+    bp => isDom(bp,'beta') && rel(bp,'beta') > 0.04 && bp.theta < bp.alpha,
     'Focused / Alert', '🎯', '#f97316',
     'Beta dominant — Li/Chao/Zhang: beta = concentration & positive attention increase'
   ],
   [
-    bp => rel(bp,'alpha') > 0.04 && isDom(bp,'alpha'),
+    bp => isDom(bp,'alpha') && rel(bp,'alpha') > 0.04,
     'Relaxed / Calm', '😌', '#22c55e',
     'Alpha dominant — Sisode (2016): high alpha (mean 5.64) = happy/relaxed; Li/Chao/Zhang: alpha = best state of learning'
   ],
   [
-    bp => rel(bp,'theta') > 0.04 && isDom(bp,'theta') && bp.alpha > bp.beta,
+    bp => isDom(bp,'theta') && rel(bp,'theta') > 0.04 && bp.alpha > bp.beta,
     'Creative / Dreamy', '🌙', '#7b68ee',
     'Theta dominant + alpha present — Li/Chao/Zhang: theta = subconscious, meditative state'
   ],
   [
-    // FIX: require BOTH delta dominant AND theta>beta to prevent electrode
-    // noise (which inflates delta only) from always showing "Sleepy"
+    // Drowsy: require delta dominant AND theta>beta AND delta clearly
+    // above alpha — prevents electrode noise (delta-only inflation) from
+    // showing "Sleepy". (The lead-off guard in analyze() catches the
+    // worst offenders before we even get here.)
     bp => isDom(bp,'delta') && bp.theta > bp.beta && bp.delta > bp.alpha * 1.3,
     'Drowsy / Sleepy', '😴', '#4a90d9',
     'Delta dominant + theta elevated — Li/Chao/Zhang: delta = unconscious/deep sleep state'
@@ -313,13 +322,17 @@ const RULES = [
 //   shows something once we have enough data.
 // ════════════════════════════════════════════════════════════════
 function calcConfidence(bp) {
+  // Compare the dominant band against the MEAN of the other four, not
+  // just the runner-up. The old dom-vs-2nd version under-scored the
+  // "Stressed" state, where beta and gamma are BOTH high and close
+  // together — they cancelled in a dom-minus-second metric even though
+  // the profile is clearly non-neutral. Dom-vs-rest-mean rewards any
+  // genuine peak, single or paired.
   const sorted = BAND_ORDER.map(b => bp[b]).sort((a,b) => b - a);
   const dom = sorted[0];
-  const second = sorted[1];
-  // separation normalised to [0,1]; clamp to reasonable range
-  const sep = (dom - second) / (dom + 1e-9);
-  // floor at 0.20 once we have a signal, so display isn't empty
-  return Math.max(0.20, Math.min(1.0, sep * 2.5));
+  const restMean = (sorted[1] + sorted[2] + sorted[3] + sorted[4]) / 4;
+  const sep = (dom - restMean) / (dom + 1e-9);
+  return Math.max(0.20, Math.min(1.0, sep * 1.8));
 }
 
 // ── State ──────────────────────────────────────────────────────
@@ -424,12 +437,25 @@ function analyze() {
   if (ring.length < WIN / 2) return;
   const sig = ring.slice(-WIN);
 
-  // Lead-quality check: if signal RMS < 2µV the electrode is probably off
+  // Lead-quality check — two bad-contact signatures, both of which
+  // otherwise get misread as "Drowsy" (delta-heavy) with high confidence:
+  //   (a) flat line     -> RMS ~0        (electrode disconnected, no signal)
+  //   (b) DC drift/rail  -> large slow swing with almost no fast wiggle
+  // Real EEG has lots of sample-to-sample movement, so the ratio of mean
+  // absolute consecutive difference to RMS stays high (~0.3). DC drift and
+  // a railed electrode sit far below 0.05 even though their RMS is large.
   const rms = Math.sqrt(sig.reduce((a,v) => a + v*v, 0) / sig.length);
-  if (rms < 2) {
-    // Don't update emotion — keep last reading rather than snapping to noise
+  let diffSum = 0;
+  for (let i = 1; i < sig.length; i++) diffSum += Math.abs(sig[i] - sig[i-1]);
+  const meanDiff = diffSum / (sig.length - 1);
+  const wiggle = meanDiff / (rms + 1e-9);
+  if (rms < 2 || wiggle < 0.05) {
+    // Poor contact — keep last reading and flag lead-off rather than
+    // snapping to a confident-but-wrong "Sleepy".
+    document.getElementById('leadOff').className = 'lead-off on';
     return;
   }
+  document.getElementById('leadOff').className = 'lead-off';
 
   const bp = {};
   let tot = 0;
