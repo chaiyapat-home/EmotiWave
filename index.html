@@ -67,7 +67,7 @@
   .card{background:var(--card);border:0.5px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem}
   .card-lbl{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px}
   .bands{display:flex;flex-direction:column;gap:9px}
-  .band-row{display:grid;grid-template-columns:70px 1fr 38px 46px;align-items:center;gap:8px}
+  .band-row{display:grid;grid-template-columns:66px 1fr 36px 58px;align-items:center;gap:8px}
   .band-name{font-size:12px;color:var(--text2)}
   .band-hz{font-size:9px;color:var(--text3);display:block}
   .band-track{height:6px;background:var(--bg3);border-radius:3px;overflow:hidden}
@@ -99,7 +99,7 @@
       <div class="brand-icon"><i class="ti ti-brain" aria-hidden="true"></i></div>
       <div>
         <div class="brand-name">EmotiWave <span class="badge-demo" id="demoBadge">demo</span> <span class="badge-cal" id="calBadge">baseline</span></div>
-        <div class="brand-sub">EEG Emotion Detector &middot; v4</div>
+        <div class="brand-sub">EEG Emotion Detector</div>
       </div>
     </div>
     <div class="topbar-right">
@@ -135,16 +135,13 @@
     <div class="row2">
       <div class="card">
         <div class="card-lbl">Band power &middot; share of total, and deviation from your resting baseline</div>
+        <div style="font-size:11px;color:var(--text3);margin:-4px 0 10px">Delta is shown for signal checking only. It is not used to decide the emotion.</div>
         <div class="bands">
           <div class="band-row"><span class="band-name">delta<span class="band-hz">1&ndash;3 Hz</span></span><div class="band-track"><div class="band-fill" id="bf-delta" style="background:#4a90d9"></div></div><span class="band-val" id="bv-delta">&mdash;</span><span class="band-z" id="bz-delta">&mdash;</span></div>
           <div class="band-row"><span class="band-name">theta<span class="band-hz">4&ndash;7 Hz</span></span><div class="band-track"><div class="band-fill" id="bf-theta" style="background:#7b68ee"></div></div><span class="band-val" id="bv-theta">&mdash;</span><span class="band-z" id="bz-theta">&mdash;</span></div>
           <div class="band-row"><span class="band-name">alpha<span class="band-hz">8&ndash;12 Hz</span></span><div class="band-track"><div class="band-fill" id="bf-alpha" style="background:#22c55e"></div></div><span class="band-val" id="bv-alpha">&mdash;</span><span class="band-z" id="bz-alpha">&mdash;</span></div>
           <div class="band-row"><span class="band-name">beta<span class="band-hz">13&ndash;30 Hz</span></span><div class="band-track"><div class="band-fill" id="bf-beta" style="background:#f97316"></div></div><span class="band-val" id="bv-beta">&mdash;</span><span class="band-z" id="bz-beta">&mdash;</span></div>
           <div class="band-row"><span class="band-name">gamma<span class="band-hz">31&ndash;45 Hz</span></span><div class="band-track"><div class="band-fill" id="bf-gamma" style="background:#ef4444"></div></div><span class="band-val" id="bv-gamma">&mdash;</span><span class="band-z" id="bz-gamma">&mdash;</span></div>
-        </div>
-        <div class="ref-note">
-          Band edges follow Li, Chao &amp; Zhang (2019) Table&nbsp;1. Gamma is capped at 45&nbsp;Hz, not 50: the BioAmp EXG Pill rolls off near 44&nbsp;Hz and the 50&nbsp;Hz mains notch sits on the old upper edge, so 45&ndash;50&nbsp;Hz carried filter artifact rather than signal.
-          The right-hand column is a z-score: how far each band sits from your own resting baseline, in standard deviations. Sisode (2016) compared alpha against a resting measurement rather than a fixed number, and that is what is done here.
         </div>
       </div>
       <div class="card">
@@ -156,7 +153,7 @@
     <div class="row4">
       <div class="stat-card"><div class="stat-val" id="statSR">&mdash;</div><div class="stat-lbl">Sample rate (Hz)</div></div>
       <div class="stat-card"><div class="stat-val" id="statPkt">0</div><div class="stat-lbl">Packets received</div></div>
-      <div class="stat-card"><div class="stat-val" id="statDrop">0</div><div class="stat-lbl">Packets dropped</div></div>
+      <div class="stat-card"><div class="stat-val" id="statDrop">0</div><div class="stat-lbl">Artifacts rejected</div></div>
       <div class="stat-card"><div class="stat-val" id="statDom">&mdash;</div><div class="stat-lbl">Strongest shift</div></div>
     </div>
 
@@ -183,13 +180,14 @@
       <div class="card-lbl">How to get an accurate reading</div>
       <div class="notice">
         <strong>Keep your eyes open and fixed on one point.</strong> Alpha rises sharply when the eyes close &mdash; far more than any emotion moves it &mdash; so a single blink-heavy stretch will swamp the measurement. (Sisode 2016 states the opposite, that alpha is stronger with eyes open; that is an error in the paper and following it will spoil your data.)<br><br>
-        <strong>Sit still through the baseline.</strong> The first 12 seconds after connecting measure your own resting band powers. Every reading afterwards is scored against that, per Sisode's baseline-first method. Jaw clenching or eyebrow movement during this window will bias everything that follows &mdash; press Recalibrate if it happens.<br><br>
+        <strong>Sit still through the baseline.</strong> The first 30 seconds after connecting measure your own resting band powers. Every reading afterwards is scored against that, per Sisode's baseline-first method. Jaw clenching or eyebrow movement during this window will bias everything that follows &mdash; press Recalibrate if it happens.<br><br>
+        <strong>Watch the rejection counter.</strong> Windows where delta swamps everything else, or where the amplitude spikes, are thrown away rather than classified &mdash; that pattern is a blink, not a brain state. A few rejections a minute is normal. Constant rejection means the electrodes need reseating or you are blinking heavily.<br><br>
         <strong>The rules below are engineering, not published findings.</strong> Neither attached paper contains a threshold rule set. Every one of the 13 methods surveyed by Li, Chao &amp; Zhang trains a supervised classifier on labelled data, reaching 62&ndash;93.5% accuracy. The mapping here is inferred from the descriptive band associations in those papers and should be described that way.
       </div>
     </div>
 
     <div class="footer">
-      EmotiWave &middot; Maker UNO X + BioAmp EXG Pill &middot; Firmware v4 &middot; Fp1 single channel<br>
+      EmotiWave &middot; Maker UNO X + BioAmp EXG Pill &middot; Fp1&ndash;Fp2 bipolar, earlobe reference<br>
       References: Sisode (2016), <em>Emotions and Brain Waves</em>; Li, Chao &amp; Zhang (2019), <em>Emotion classification based on brain wave: a survey</em><br>
       Live capture needs the <a href="https://caniuse.com/web-serial" target="_blank" rel="noopener">Web Serial API</a> (Chrome/Edge)
     </div>
@@ -266,10 +264,31 @@ const BANDS = {
 };
 const BAND_ORDER = ['delta','theta','alpha','beta','gamma'];
 
-const BASELINE_FRAMES = 48;        // 48 frames at 4 Hz = 12 s
-const SD_FLOOR = 0.015;            // stops a quiet baseline exploding the z-score
+// Bands used to decide the emotion. Delta is deliberately excluded.
+// At Fp1/Fp2 the 1-3 Hz band is dominated by blinks and eye movement, not
+// cortex - real delta only appears in deep sleep. Worse, because the five
+// bands are normalised to sum to 1, a delta spike mechanically pushes every
+// other band's share down, which is exactly the pattern the drowsy rule
+// looks for. So delta now acts as the artifact detector instead.
+const CLASS_BANDS = ['theta','alpha','beta','gamma'];
+const DELTA_ARTIFACT = 0.60;       // delta share above this = blink, drop the frame
+const P2P_ARTIFACT = 3.0;          // peak-to-peak above 3x resting = movement/blink
+
+// Baseline sampling.
+//
+// The v4 release collected one frame every analysis (0.25 s) for 12 s. With a
+// 4 s window that means consecutive frames shared 15/16 of their samples -
+// they were not independent, so the measured standard deviation reflected
+// window jitter rather than real resting variability. It came out far too
+// small, every band then read as a huge deviation, and whichever rule sat
+// earliest in the list won. Sampling every 1.5 s over 30 s gives frames that
+// overlap 62% instead of 94%, and a standard deviation that means something.
+const BASELINE_STRIDE = 6;         // take one frame per 6 analyses = 1.5 s
+const BASELINE_FRAMES = 20;        // 20 x 1.5 s = 30 s
+const SD_FLOOR = 0.02;             // stops a quiet baseline exploding the z-score
+const Z_MAIN = 1.5;                // how far a band must move to count
 const SMOOTH = 0.45;               // EMA weight on new band powers
-const HOLD_FRAMES = 2;             // a label must repeat before it is shown
+const HOLD_FRAMES = 3;             // a label must repeat before it is shown
 
 // ════════════════════════════════════════════════════════════════
 // Classification rules
@@ -280,39 +299,41 @@ const HOLD_FRAMES = 2;             // a label must repeat before it is shown
 // single band happens to be marginally higher.
 // ════════════════════════════════════════════════════════════════
 function strongest(z) {
-  return BAND_ORDER.reduce((a,b) => z[b] > z[a] ? b : a);
+  return CLASS_BANDS.reduce((a,b) => z[b] > z[a] ? b : a);
 }
 
 const RULES = [
   {
     label: 'Stressed / Anxious', emoji: '\u{1F630}', color: '#ef4444',
-    test: z => z.beta > 1.0 && z.gamma > 1.0 && z.alpha < -0.5,
+    test: z => z.beta > Z_MAIN && z.gamma > Z_MAIN && z.alpha < -0.8,
     desc: 'Beta and gamma both well above your resting level while alpha has dropped. Li, Chao & Zhang link high beta to sustained attention and gamma to arousal; Sisode found suppressed alpha in the non-relaxed condition.'
   },
   {
     label: 'Excited / Happy', emoji: '\u{1F604}', color: '#eab308',
-    test: z => z.gamma > 1.0 && strongest(z) === 'gamma' && z.alpha > -1.0,
+    test: z => z.gamma > Z_MAIN && strongest(z) === 'gamma' && z.alpha > -1.5,
     desc: 'Gamma is your largest shift and alpha is holding. Li, Chao & Zhang associate gamma with happiness and with released stress.'
   },
   {
     label: 'Focused / Alert', emoji: '\u{1F3AF}', color: '#f97316',
-    test: z => z.beta > 1.0 && strongest(z) === 'beta' && z.theta < 0.5,
+    test: z => z.beta > Z_MAIN && strongest(z) === 'beta' && z.theta < 0.5,
     desc: 'Beta is your largest shift with theta flat. Li, Chao & Zhang: beta rises with concentration and increased attention.'
   },
   {
     label: 'Relaxed / Calm', emoji: '\u{1F60C}', color: '#22c55e',
-    test: z => z.alpha > 1.0 && strongest(z) === 'alpha',
+    test: z => z.alpha > Z_MAIN && strongest(z) === 'alpha',
     desc: 'Alpha is your largest shift. This is the effect Sisode (2016) measured: alpha higher in the happy condition (mean 5.64) than the sad one (3.24), t = 2.46, p < 0.01.'
   },
   {
-    label: 'Creative / Dreamy', emoji: '\u{1F319}', color: '#7b68ee',
-    test: z => z.theta > 1.0 && strongest(z) === 'theta' && z.alpha > -1.0,
-    desc: 'Theta is your largest shift with alpha still present. Li, Chao & Zhang describe theta as the subconscious, meditative state.'
+    // Checked before Dreamy: drowsiness is theta rising while the fast
+    // bands AND alpha both fall away. Dreamy keeps its alpha.
+    label: 'Drowsy / Sleepy', emoji: '\u{1F634}', color: '#4a90d9',
+    test: z => z.theta > Z_MAIN && z.alpha < -1.0 && z.beta < -1.0,
+    desc: 'Theta up while alpha and beta both fall away. Li, Chao & Zhang place theta at the drowsy, shallow-sleep end of the scale.'
   },
   {
-    label: 'Drowsy / Sleepy', emoji: '\u{1F634}', color: '#4a90d9',
-    test: z => z.delta > 1.0 && z.theta > 0.3 && z.beta < -0.3,
-    desc: 'Delta and theta up together while beta falls away. Li, Chao & Zhang place delta at the unconscious, deep-sleep end.'
+    label: 'Creative / Dreamy', emoji: '\u{1F319}', color: '#7b68ee',
+    test: z => z.theta > Z_MAIN && strongest(z) === 'theta' && z.alpha > -0.5,
+    desc: 'Theta is your largest shift with alpha still present. Li, Chao & Zhang describe theta as the subconscious, meditative state.'
   },
   {
     label: 'Neutral', emoji: '\u{1F610}', color: '#888787',
@@ -328,10 +349,10 @@ let bandHist = {}, emoHist = [];
 let bpSmooth = null, lastZ = null;
 let pendingLabel = null, pendingCount = 0;
 let curEmo = { emoji:'\u{1F9E0}', label:'Connect to begin', color:'#888', desc:'', conf:0, bp:null, z:null };
-let pktCount = 0, dropCount = 0, srCount = 0, srTimer = Date.now(), lastPktNum = null;
+let pktCount = 0, dropCount = 0, artifactCount = 0, baseTick = 0, srCount = 0, srTimer = Date.now(), lastPktNum = null;
 let port = null, reader = null, animId = null, needsRedraw = true;
 let firmwareLeadOff = false, qualityLeadOff = false, leadOffReason = '';
-let base = { frames: [], mean: null, sd: null, ready: false };
+let base = { frames: [], p2p: [], p2pMed: 1, mean: null, sd: null, ready: false };
 BAND_ORDER.forEach(b => bandHist[b] = []);
 
 // ════════════════════════════════════════════════════════════════
@@ -430,14 +451,29 @@ function signalQuality(sig, spec) {
 // ════════════════════════════════════════════════════════════════
 // Baseline + classification                                  FIX 3
 // ════════════════════════════════════════════════════════════════
-function addBaselineFrame(bp) {
-  base.frames.push(bp);
+// Renormalise the four classification bands so they sum to 1 without delta.
+// Dropping delta from the denominator also removes its noise from every
+// other band's share, which is why the remaining bands get steadier.
+function classBands(bp) {
+  let s = 0;
+  for (const b of CLASS_BANDS) s += bp[b];
+  const o = {};
+  for (const b of CLASS_BANDS) o[b] = bp[b] / (s + 1e-12);
+  return o;
+}
+
+function addBaselineFrame(cb, p2p) {
+  baseTick++;
   const pct = Math.min(1, base.frames.length / BASELINE_FRAMES);
   document.getElementById('calFill').style.width = Math.round(pct * 100) + '%';
+  if (baseTick % BASELINE_STRIDE !== 0) return;     // space the samples out
+
+  base.frames.push(cb);
+  base.p2p.push(p2p);
   if (base.frames.length < BASELINE_FRAMES) return;
 
   base.mean = {}; base.sd = {};
-  for (const b of BAND_ORDER) {
+  for (const b of CLASS_BANDS) {
     let m = 0;
     for (const f of base.frames) m += f[b];
     m /= base.frames.length;
@@ -447,16 +483,18 @@ function addBaselineFrame(bp) {
     base.mean[b] = m;
     base.sd[b] = Math.sqrt(v);
   }
+  const sorted = base.p2p.slice().sort((a, b) => a - b);
+  base.p2pMed = sorted[Math.floor(sorted.length / 2)] || 1;
   base.ready = true;
   document.getElementById('calBadge').style.display = 'none';
   document.getElementById('calBar').style.display = 'none';
   document.getElementById('recalBtn').disabled = false;
 }
 
-function zscores(bp) {
+function zscores(cb) {
   const z = {};
-  for (const b of BAND_ORDER) {
-    const raw = (bp[b] - base.mean[b]) / Math.max(base.sd[b], SD_FLOOR);
+  for (const b of CLASS_BANDS) {
+    const raw = (cb[b] - base.mean[b]) / Math.max(base.sd[b], SD_FLOOR);
     z[b] = Math.max(-8, Math.min(8, raw));
   }
   return z;
@@ -466,9 +504,9 @@ function zscores(bp) {
 // and for Neutral, how convincingly close to resting it is.
 function confidence(z, isNeutral) {
   let peak = 0;
-  for (const b of BAND_ORDER) peak = Math.max(peak, Math.abs(z[b]));
-  if (isNeutral) return Math.max(0.2, Math.min(0.95, 1 - peak / 1.6));
-  return Math.max(0.2, Math.min(0.99, peak / 3.2));
+  for (const b of CLASS_BANDS) peak = Math.max(peak, Math.abs(z[b]));
+  if (isNeutral) return Math.max(0.2, Math.min(0.95, 1 - peak / 2.2));
+  return Math.max(0.2, Math.min(0.99, peak / 4.5));
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -485,10 +523,28 @@ function analyze() {
 
   const bp = bandPowers(spec);
 
+  // ---- Artifact gate -------------------------------------------------
+  // A blink dumps far more energy into 1-4 Hz than the cortex ever does,
+  // so a delta-dominated window is an eyelid, not a brain state. Throwing
+  // the window away is honest; classifying it is not.
+  let lo = sig[0], hi = sig[0];
+  for (let i = 1; i < sig.length; i++) {
+    if (sig[i] < lo) lo = sig[i];
+    if (sig[i] > hi) hi = sig[i];
+  }
+  const p2p = hi - lo;
+  const tooBig = base.ready && p2p > base.p2pMed * P2P_ARTIFACT;
+  if (bp.delta > DELTA_ARTIFACT || tooBig) {
+    artifactCount++;
+    document.getElementById('statDrop').textContent = artifactCount;
+    return;
+  }
+
   // EMA smoothing to stop single-frame artifacts flipping the label
   if (!bpSmooth) bpSmooth = Object.assign({}, bp);
   else for (const b of BAND_ORDER) bpSmooth[b] = bpSmooth[b] * (1 - SMOOTH) + bp[b] * SMOOTH;
   const bps = Object.assign({}, bpSmooth);
+  const cb = classBands(bps);
 
   BAND_ORDER.forEach(b => {
     bandHist[b].push(bps[b]);
@@ -499,18 +555,20 @@ function analyze() {
   document.getElementById('statPkt').textContent = pktCount;
 
   if (!base.ready) {
-    addBaselineFrame(bps);
+    addBaselineFrame(cb, p2p);
+    const left = Math.max(0, BASELINE_FRAMES - base.frames.length) * BASELINE_STRIDE / 4;
     curEmo = {
       emoji: '\u{1F9EA}', label: 'Measuring your baseline',
       color: '#2563eb', conf: 0, bp: bps, z: null,
-      desc: 'Sit still, eyes open, looking at one point. This records your own resting band powers so later readings can be compared against them.'
+      desc: 'Sit still, eyes open, looking at one point. About ' + Math.ceil(left) +
+            ' seconds to go. This records your own resting band powers so later readings can be compared against them.'
     };
     needsRedraw = true;
     updateHUD();
     return;
   }
 
-  const z = zscores(bps);
+  const z = zscores(cb);
   lastZ = z;
 
   let rule = RULES[RULES.length - 1];
@@ -541,7 +599,7 @@ function analyze() {
     curEmo.bp = bps; curEmo.z = z;
   }
 
-  const shift = BAND_ORDER.reduce((a,b) => Math.abs(z[b]) > Math.abs(z[a]) ? b : a);
+  const shift = CLASS_BANDS.reduce((a,b) => Math.abs(z[b]) > Math.abs(z[a]) ? b : a);
   document.getElementById('statDom').textContent =
     shift + ' ' + (z[shift] >= 0 ? '+' : '') + z[shift].toFixed(1);
 
@@ -576,13 +634,13 @@ function updateHUD() {
     document.getElementById('bf-' + b).style.width = (e.bp ? v : 0) + '%';
     document.getElementById('bv-' + b).textContent = e.bp ? v + '%' : '\u2014';
     const zEl = document.getElementById('bz-' + b);
-    if (e.z) {
-      const zv = e.z[b];
-      zEl.textContent = (zv >= 0 ? '+' : '') + zv.toFixed(1) + '\u03C3';
-      zEl.style.color = Math.abs(zv) >= 1 ? BANDS[b][2] : 'var(--text3)';
-    } else {
-      zEl.textContent = '\u2014';
+    const zv = e.z ? e.z[b] : undefined;
+    if (zv === undefined) {
+      zEl.textContent = b === 'delta' ? 'n/a' : '\u2014';
       zEl.style.color = 'var(--text3)';
+    } else {
+      zEl.textContent = (zv >= 0 ? '+' : '') + zv.toFixed(1) + ' SD';
+      zEl.style.color = Math.abs(zv) >= Z_MAIN ? BANDS[b][2] : 'var(--text3)';
     }
   });
 
@@ -735,7 +793,7 @@ function push(arr) {
 // from it, and every later phase is scored as a deviation from it.
 // ════════════════════════════════════════════════════════════════
 const DEMO_PHASES = [
-  { name:'Resting',  secs:16, w:{delta:.30, theta:.22, alpha:.20, beta:.20, gamma:.08} },
+  { name:'Resting',  secs:40, w:{delta:.30, theta:.22, alpha:.20, beta:.20, gamma:.08} },
   { name:'Relaxed',  secs:12, w:{delta:.22, theta:.18, alpha:.38, beta:.16, gamma:.06} },
   { name:'Focused',  secs:12, w:{delta:.18, theta:.14, alpha:.18, beta:.43, gamma:.07} },
   { name:'Stressed', secs:12, w:{delta:.16, theta:.12, alpha:.10, beta:.40, gamma:.22} },
@@ -874,7 +932,6 @@ async function readSerial() {
           // if it were continuous, which corrupts the FFT. Resync.
           if (lastPktNum !== null && pkt.pkt !== lastPktNum + 1) {
             dropCount += Math.max(1, pkt.pkt - lastPktNum - 1);
-            document.getElementById('statDrop').textContent = dropCount;
             ring = []; stepAcc = 0;
           }
           lastPktNum = pkt.pkt;
@@ -900,10 +957,11 @@ async function readSerial() {
 }
 
 function recalibrate() {
-  base = { frames: [], mean: null, sd: null, ready: false };
-  bpSmooth = null; lastZ = null;
+  base = { frames: [], p2p: [], p2pMed: 1, mean: null, sd: null, ready: false };
+  bpSmooth = null; lastZ = null; baseTick = 0; artifactCount = 0;
   pendingLabel = null; pendingCount = 0;
   emoHist = [];
+  document.getElementById('statDrop').textContent = '0';
   document.getElementById('calBadge').style.display = '';
   document.getElementById('calBar').style.display = '';
   document.getElementById('calFill').style.width = '0%';
@@ -928,10 +986,10 @@ async function stopAll() {
   }
 
   ring = []; stepAcc = 0; demoT = 0; demoPhase = 0; demoPhaseSamp = 0;
-  pktCount = 0; dropCount = 0; srCount = 0; lastPktNum = null;
+  pktCount = 0; dropCount = 0; artifactCount = 0; baseTick = 0; srCount = 0; lastPktNum = null;
   bpSmooth = null; lastZ = null; pendingLabel = null; pendingCount = 0;
   firmwareLeadOff = false; qualityLeadOff = false; leadOffReason = '';
-  base = { frames: [], mean: null, sd: null, ready: false };
+  base = { frames: [], p2p: [], p2pMed: 1, mean: null, sd: null, ready: false };
   BAND_ORDER.forEach(b => bandHist[b] = []);
   emoHist = [];
   curEmo = {
