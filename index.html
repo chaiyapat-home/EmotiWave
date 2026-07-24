@@ -285,7 +285,7 @@ const P2P_ARTIFACT = 3.0;          // peak-to-peak above 3x resting = movement/b
 // overlap 62% instead of 94%, and a standard deviation that means something.
 const BASELINE_STRIDE = 6;         // take one frame per 6 analyses = 1.5 s
 const BASELINE_FRAMES = 20;        // 20 x 1.5 s = 30 s
-const SD_FLOOR = 0.02;             // stops a quiet baseline exploding the z-score
+const SD_FLOOR = 0.10;             // on the log scale; stops a quiet baseline exploding the z-score
 const Z_MAIN = 1.5;                // how far a band must move to count
 const SMOOTH = 0.45;               // EMA weight on new band powers
 const HOLD_FRAMES = 3;             // a label must repeat before it is shown
@@ -298,49 +298,78 @@ const HOLD_FRAMES = 3;             // a label must repeat before it is shown
 // ones, otherwise a co-elevated pair gets claimed by whichever
 // single band happens to be marginally higher.
 // ════════════════════════════════════════════════════════════════
-function strongest(z) {
-  return CLASS_BANDS.reduce((a,b) => z[b] > z[a] ? b : a);
-}
-
-const RULES = [
+// Every state is scored, and the highest score wins.
+//
+// The previous version used first-match-wins with hard gates, and two states
+// turned out to be unreachable in practice:
+//
+//   Focused required theta below 0.5 SD. Blinks leak into 4-7 Hz, so theta
+//   sits high, and because the four shares are renormalised to sum to 1, high
+//   theta mechanically pushes beta's share down. Beta could never be strongest.
+//
+//   Excited required gamma above 1.5 SD. Gamma's share is small and so is its
+//   real variation, so the absolute SD floor divided it by a number far larger
+//   than its true spread and shrank its z-score. It could never clear the bar.
+//
+// Scoring against a template removes both failure modes: no state can be
+// blocked by another state's gate, and a band that moves in the right pattern
+// contributes even when it does not win outright.
+const TEMPLATES = [
   {
     label: 'Stressed / Anxious', emoji: '\u{1F630}', color: '#ef4444',
-    test: z => z.beta > Z_MAIN && z.gamma > Z_MAIN && z.alpha < -0.8,
-    desc: 'Beta and gamma both well above your resting level while alpha has dropped. Li, Chao & Zhang link high beta to sustained attention and gamma to arousal; Sisode found suppressed alpha in the non-relaxed condition.'
+    w: { theta: -0.2, alpha: -0.6, beta: 0.8, gamma: 0.8 },
+    desc: 'Beta and gamma both up while alpha drops. Li, Chao & Zhang link high beta to sustained attention and gamma to arousal; Sisode found suppressed alpha in the non-relaxed condition.'
   },
   {
     label: 'Excited / Happy', emoji: '\u{1F604}', color: '#eab308',
-    test: z => z.gamma > Z_MAIN && strongest(z) === 'gamma' && z.alpha > -1.5,
-    desc: 'Gamma is your largest shift and alpha is holding. Li, Chao & Zhang associate gamma with happiness and with released stress.'
+    w: { theta: -0.3, alpha: 0.1, beta: 0.2, gamma: 1.0 },
+    desc: 'Gamma leads with alpha holding. Li, Chao & Zhang associate gamma with happiness and with released stress.'
   },
   {
     label: 'Focused / Alert', emoji: '\u{1F3AF}', color: '#f97316',
-    test: z => z.beta > Z_MAIN && strongest(z) === 'beta' && z.theta < 0.5,
-    desc: 'Beta is your largest shift with theta flat. Li, Chao & Zhang: beta rises with concentration and increased attention.'
+    w: { theta: -0.4, alpha: -0.2, beta: 1.0, gamma: 0.2 },
+    desc: 'Beta leads with theta falling back. Li, Chao & Zhang: beta rises with concentration and increased attention.'
   },
   {
     label: 'Relaxed / Calm', emoji: '\u{1F60C}', color: '#22c55e',
-    test: z => z.alpha > Z_MAIN && strongest(z) === 'alpha',
-    desc: 'Alpha is your largest shift. This is the effect Sisode (2016) measured: alpha higher in the happy condition (mean 5.64) than the sad one (3.24), t = 2.46, p < 0.01.'
-  },
-  {
-    // Checked before Dreamy: drowsiness is theta rising while the fast
-    // bands AND alpha both fall away. Dreamy keeps its alpha.
-    label: 'Drowsy / Sleepy', emoji: '\u{1F634}', color: '#4a90d9',
-    test: z => z.theta > Z_MAIN && z.alpha < -1.0 && z.beta < -1.0,
-    desc: 'Theta up while alpha and beta both fall away. Li, Chao & Zhang place theta at the drowsy, shallow-sleep end of the scale.'
+    w: { theta: -0.3, alpha: 1.0, beta: -0.3, gamma: -0.2 },
+    desc: 'Alpha leads. This is the effect Sisode (2016) measured: alpha higher in the happy condition (mean 5.64) than the sad one (3.24), t = 2.46, p < 0.01.'
   },
   {
     label: 'Creative / Dreamy', emoji: '\u{1F319}', color: '#7b68ee',
-    test: z => z.theta > Z_MAIN && strongest(z) === 'theta' && z.alpha > -0.5,
-    desc: 'Theta is your largest shift with alpha still present. Li, Chao & Zhang describe theta as the subconscious, meditative state.'
+    w: { theta: 1.0, alpha: 0.4, beta: -0.5, gamma: -0.4 },
+    desc: 'Theta leads with alpha still present. Li, Chao & Zhang describe theta as the subconscious, meditative state.'
   },
   {
-    label: 'Neutral', emoji: '\u{1F610}', color: '#888787',
-    test: () => true,
-    desc: 'Every band is close to your resting baseline. No emotional shift to report.'
+    label: 'Drowsy / Sleepy', emoji: '\u{1F634}', color: '#4a90d9',
+    w: { theta: 1.0, alpha: -0.5, beta: -0.7, gamma: -0.5 },
+    desc: 'Theta up while alpha and beta both fall away. Li, Chao & Zhang place theta at the drowsy, shallow-sleep end.'
   },
 ];
+TEMPLATES.forEach(t => {
+  let n = 0;
+  for (const b of CLASS_BANDS) n += t.w[b] * t.w[b];
+  t.norm = Math.sqrt(n);
+});
+
+const NEUTRAL = {
+  label: 'Neutral', emoji: '\u{1F610}', color: '#888787',
+  desc: 'Every band is close to your resting baseline. No emotional shift to report.'
+};
+
+// Project the observed z-vector onto each template. The projection is in the
+// same SD units as the z-scores, so Z_MAIN reads the same as it did before.
+function classify(z) {
+  let best = null, bestScore = -Infinity, second = -Infinity;
+  for (const t of TEMPLATES) {
+    let dot = 0;
+    for (const b of CLASS_BANDS) dot += z[b] * t.w[b];
+    const score = dot / t.norm;
+    if (score > bestScore) { second = bestScore; bestScore = score; best = t; }
+    else if (score > second) { second = score; }
+  }
+  return { rule: bestScore >= Z_MAIN ? best : NEUTRAL, score: bestScore, margin: bestScore - second };
+}
 
 // ---- State ------------------------------------------------------
 let ring = [], stepAcc = 0, running = false, demoMode = false;
@@ -352,7 +381,7 @@ let curEmo = { emoji:'\u{1F9E0}', label:'Connect to begin', color:'#888', desc:'
 let pktCount = 0, dropCount = 0, artifactCount = 0, baseTick = 0, srCount = 0, srTimer = Date.now(), lastPktNum = null;
 let port = null, reader = null, animId = null, needsRedraw = true;
 let firmwareLeadOff = false, qualityLeadOff = false, leadOffReason = '';
-let base = { frames: [], p2p: [], p2pMed: 1, mean: null, sd: null, ready: false };
+let base = { frames: [], p2p: [], delta: [], p2pMed: 1, deltaMax: DELTA_ARTIFACT, mean: null, sd: null, ready: false };
 BAND_ORDER.forEach(b => bandHist[b] = []);
 
 // ════════════════════════════════════════════════════════════════
@@ -462,14 +491,31 @@ function classBands(bp) {
   return o;
 }
 
-function addBaselineFrame(cb, p2p) {
+// Baseline statistics are taken on the LOG of each share.
+//
+// On a linear share, an absolute SD floor punishes small bands: gamma sits
+// near 11% with a correspondingly small spread, so a fixed 0.02 floor divided
+// it by far more than its real variation and crushed its z-score. Beta, at
+// nearly 30%, was unaffected. On a log scale a proportional change counts the
+// same whatever the band's size - gamma going 5% to 10% scores like beta going
+// 25% to 50% - so no band is structurally louder or quieter than another.
+// Band powers are close to log-normal, so this is also the better-behaved
+// statistic.
+function logShares(cb) {
+  const o = {};
+  for (const b of CLASS_BANDS) o[b] = Math.log(Math.max(cb[b], 1e-4));
+  return o;
+}
+
+function addBaselineFrame(cb, p2p, deltaShare) {
   baseTick++;
   const pct = Math.min(1, base.frames.length / BASELINE_FRAMES);
   document.getElementById('calFill').style.width = Math.round(pct * 100) + '%';
   if (baseTick % BASELINE_STRIDE !== 0) return;     // space the samples out
 
-  base.frames.push(cb);
+  base.frames.push(logShares(cb));
   base.p2p.push(p2p);
+  base.delta.push(deltaShare);
   if (base.frames.length < BASELINE_FRAMES) return;
 
   base.mean = {}; base.sd = {};
@@ -485,6 +531,12 @@ function addBaselineFrame(cb, p2p) {
   }
   const sorted = base.p2p.slice().sort((a, b) => a - b);
   base.p2pMed = sorted[Math.floor(sorted.length / 2)] || 1;
+  // Adaptive blink threshold: your own resting delta plus a wide margin,
+  // never stricter than the fixed ceiling.
+  let dm = 0;
+  for (const d of base.delta) dm += d;
+  dm /= base.delta.length;
+  base.deltaMax = Math.min(DELTA_ARTIFACT, Math.max(0.35, dm + 0.20));
   base.ready = true;
   document.getElementById('calBadge').style.display = 'none';
   document.getElementById('calBar').style.display = 'none';
@@ -492,9 +544,10 @@ function addBaselineFrame(cb, p2p) {
 }
 
 function zscores(cb) {
+  const ls = logShares(cb);
   const z = {};
   for (const b of CLASS_BANDS) {
-    const raw = (cb[b] - base.mean[b]) / Math.max(base.sd[b], SD_FLOOR);
+    const raw = (ls[b] - base.mean[b]) / Math.max(base.sd[b], SD_FLOOR);
     z[b] = Math.max(-8, Math.min(8, raw));
   }
   return z;
@@ -502,11 +555,18 @@ function zscores(cb) {
 
 // FIX 7: confidence reflects how far the profile is from resting,
 // and for Neutral, how convincingly close to resting it is.
-function confidence(z, isNeutral) {
-  let peak = 0;
-  for (const b of CLASS_BANDS) peak = Math.max(peak, Math.abs(z[b]));
-  if (isNeutral) return Math.max(0.2, Math.min(0.95, 1 - peak / 2.2));
-  return Math.max(0.2, Math.min(0.99, peak / 4.5));
+// Confidence combines how far the profile moved with how clearly the winning
+// pattern beat the runner-up. Two states scoring nearly the same is exactly
+// when the answer should be reported as uncertain.
+function confidence(z, verdict) {
+  if (verdict.rule === NEUTRAL) {
+    let peak = 0;
+    for (const b of CLASS_BANDS) peak = Math.max(peak, Math.abs(z[b]));
+    return Math.max(0.2, Math.min(0.95, 1 - peak / 2.2));
+  }
+  const strength = Math.min(1, verdict.score / 4.5);
+  const clarity = Math.min(1, 0.45 + verdict.margin / 2.5);
+  return Math.max(0.2, Math.min(0.97, strength * clarity));
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -534,7 +594,8 @@ function analyze() {
   }
   const p2p = hi - lo;
   const tooBig = base.ready && p2p > base.p2pMed * P2P_ARTIFACT;
-  if (bp.delta > DELTA_ARTIFACT || tooBig) {
+  const deltaCap = base.ready ? base.deltaMax : DELTA_ARTIFACT;
+  if (bp.delta > deltaCap || tooBig) {
     artifactCount++;
     document.getElementById('statDrop').textContent = artifactCount;
     return;
@@ -555,7 +616,7 @@ function analyze() {
   document.getElementById('statPkt').textContent = pktCount;
 
   if (!base.ready) {
-    addBaselineFrame(cb, p2p);
+    addBaselineFrame(cb, p2p, bp.delta);
     const left = Math.max(0, BASELINE_FRAMES - base.frames.length) * BASELINE_STRIDE / 4;
     curEmo = {
       emoji: '\u{1F9EA}', label: 'Measuring your baseline',
@@ -571,8 +632,8 @@ function analyze() {
   const z = zscores(cb);
   lastZ = z;
 
-  let rule = RULES[RULES.length - 1];
-  for (const r of RULES) { if (r.test(z)) { rule = r; break; } }
+  const verdict = classify(z);
+  const rule = verdict.rule;
 
   // Require the same answer twice before switching the displayed label
   if (rule.label === curEmo.label) {
@@ -585,10 +646,9 @@ function analyze() {
 
   const accept = (rule.label === curEmo.label) || pendingCount >= HOLD_FRAMES;
   if (accept) {
-    const isNeutral = rule.label === 'Neutral';
     curEmo = {
       emoji: rule.emoji, label: rule.label, color: rule.color,
-      desc: rule.desc, conf: confidence(z, isNeutral), bp: bps, z
+      desc: rule.desc, conf: confidence(z, verdict), bp: bps, z
     };
     if (!emoHist.length || emoHist[0].label !== rule.label) {
       emoHist.unshift({ emoji: rule.emoji, label: rule.label, color: rule.color, t: Date.now() });
