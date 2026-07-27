@@ -3,386 +3,372 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>EmotiWave - EEG Emotion Detector</title>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<title>EmotiWave</title>
 <style>
   :root {
-    --bg: #f9f9f7; --bg2: #f1f0eb; --bg3: #e8e7e1; --card: #ffffff;
-    --border: rgba(0,0,0,0.10); --border2: rgba(0,0,0,0.18);
-    --text: #1a1a18; --text2: #6b6b65; --text3: #9b9b93;
-    --radius: 12px; --radius-sm: 8px; --font: 'Segoe UI', system-ui, sans-serif;
+    --bg:#fdf6e4; --bg2:#f8eed3; --bg3:#efe0bb; --card:#fffdf6;
+    --border:rgba(56,101,145,0.18); --border2:rgba(56,101,145,0.32);
+    --text:#26333f; --text2:#5f7285; --text3:#93a2b1;
+    --accent:#3a6d9e; --accent2:#dfa62c;
+    --accent-soft:rgba(58,109,158,0.20); --warm-soft:rgba(223,166,44,0.16);
+    --good:#4e8a72; --bad:#bf5a45;
+    --r:14px; --rs:9px;
+    --font:'Segoe UI',system-ui,-apple-system,sans-serif;
+    --mono:ui-monospace,Menlo,Consolas,monospace;
   }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg:#111110; --bg2:#1c1c1a; --bg3:#262624; --card:#1c1c1a;
-      --border:rgba(255,255,255,0.09); --border2:rgba(255,255,255,0.16);
-      --text:#f0efe8; --text2:#9b9a94; --text3:#6b6b65;
-    }
-  }
+  @media (prefers-color-scheme:dark){:root{
+    --bg:#121a25; --bg2:#1a2431; --bg3:#243040; --card:#1a2431;
+    --border:rgba(232,196,118,0.17); --border2:rgba(232,196,118,0.30);
+    --text:#f6ecd6; --text2:#a7b4c3; --text3:#74818f;
+    --accent:#83b6de; --accent2:#edc158;
+    --accent-soft:rgba(131,182,222,0.24); --warm-soft:rgba(237,193,88,0.18);
+    --good:#6fae94; --bad:#d97a64;
+  }}
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-  html,body{height:100%}
-  body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh}
-  .app{display:grid;grid-template-rows:56px 1fr;height:100vh}
-  .topbar{background:var(--card);border-bottom:0.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 1.5rem;gap:12px;position:sticky;top:0;z-index:10}
-  .main{overflow-y:auto;padding:1.25rem 1.5rem;display:flex;flex-direction:column;gap:12px}
-  .brand{display:flex;align-items:center;gap:10px}
-  .brand-icon{width:32px;height:32px;border-radius:50%;background:#dbeafe;color:#1d4ed8;display:flex;align-items:center;justify-content:center;font-size:16px}
-  @media (prefers-color-scheme: dark){.brand-icon{background:#1e3a5f;color:#60a5fa}}
-  .brand-name{font-size:15px;font-weight:500}
-  .brand-sub{font-size:11px;color:var(--text2)}
-  .topbar-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
-  .status-pill{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);padding:4px 10px;border-radius:20px;border:0.5px solid var(--border)}
-  .dot{width:7px;height:7px;border-radius:50%;background:var(--bg3);flex-shrink:0}
-  .dot.live{background:#22c55e}.dot.err{background:#ef4444}
-  .badge-demo{font-size:10px;padding:2px 7px;border-radius:20px;background:#fef3c7;color:#92400e;border:0.5px solid #fde68a;display:none}
-  @media (prefers-color-scheme: dark){.badge-demo{background:#3b2700;color:#fbbf24;border-color:#78350f}}
-  .badge-cal{font-size:10px;padding:2px 7px;border-radius:20px;background:#dbeafe;color:#1d4ed8;border:0.5px solid #93c5fd;display:none}
-  @media (prefers-color-scheme: dark){.badge-cal{background:#1e3a5f;color:#60a5fa;border-color:#2563eb}}
-  .btn{display:flex;align-items:center;gap:6px;padding:6px 13px;border-radius:var(--radius-sm);border:0.5px solid var(--border2);background:transparent;color:var(--text);font-size:12px;cursor:pointer;transition:background .12s,border-color .12s;font-family:var(--font)}
+  body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;line-height:1.5}
+  .wrap{max-width:820px;margin:0 auto;padding:0 1.25rem 3rem}
+
+  header{display:flex;align-items:center;justify-content:space-between;gap:14px;
+         padding:1.1rem 0 1.25rem;flex-wrap:wrap}
+  .brand{display:flex;align-items:center;gap:11px}
+  .brand-icon{width:40px;height:40px;border-radius:50%;background:var(--warm-soft);
+              border:1px solid var(--border);color:var(--accent);
+              display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .brand-name{font-size:19px;font-weight:600;letter-spacing:-.01em}
+  .brand-sub{font-size:12px;color:var(--text2)}
+  .actions{display:flex;gap:8px;align-items:center}
+  .btn{display:inline-flex;align-items:center;gap:7px;padding:9px 17px;border-radius:99px;
+       border:1.5px solid var(--border2);background:transparent;color:var(--text);
+       font-size:14px;font-weight:500;cursor:pointer;font-family:var(--font);
+       transition:background .15s,filter .15s}
   .btn:hover{background:var(--bg2)}
-  .btn:focus-visible{outline:2px solid #2563eb;outline-offset:2px}
-  .btn.connected{border-color:#16a34a;color:#16a34a}
-  .btn-demo{border-style:dashed}
-  .btn[disabled]{opacity:.45;cursor:not-allowed}
-  .lead-off{display:none;align-items:center;gap:5px;font-size:11px;color:#dc2626;font-weight:500}
-  .lead-off.on{display:flex}
-  .no-serial{display:none;align-items:center;gap:8px;font-size:12px;color:#92400e;background:#fffbeb;border:0.5px solid #fde68a;border-radius:var(--radius-sm);padding:8px 12px}
-  @media (prefers-color-scheme: dark){.no-serial{background:#3b2700;color:#fbbf24;border-color:#78350f}}
-  .no-serial.on{display:flex}
-  .emo-hero{background:var(--card);border:0.5px solid var(--border);border-radius:var(--radius);padding:1.25rem 1.5rem;display:flex;align-items:center;gap:20px;flex-wrap:wrap}
-  .emo-emoji{font-size:52px;line-height:1;flex-shrink:0;transition:opacity .3s}
-  .emo-body{flex:1;min-width:220px}
-  .emo-label{font-size:24px;font-weight:500;transition:color .35s}
-  .emo-desc{font-size:13px;color:var(--text2);margin-top:3px;line-height:1.45}
-  .conf-track{height:4px;background:var(--bg3);border-radius:2px;margin-top:10px;overflow:hidden}
-  .conf-fill{height:4px;border-radius:2px;width:0%;transition:width .5s,background .4s}
-  .conf-meta{text-align:right;flex-shrink:0}
-  .conf-meta .big{font-size:28px;font-weight:500}
-  .conf-meta .lbl{font-size:11px;color:var(--text2);margin-bottom:2px}
-  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  .row3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-  .row4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
-  @media (max-width:760px){.row2,.row3,.row4{grid-template-columns:1fr 1fr}}
-  @media (max-width:520px){.row2,.row3,.row4{grid-template-columns:1fr}}
-  .card{background:var(--card);border:0.5px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem}
-  .card-lbl{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px}
-  .bands{display:flex;flex-direction:column;gap:9px}
-  .band-row{display:grid;grid-template-columns:66px 1fr 36px 58px;align-items:center;gap:8px}
-  .band-name{font-size:12px;color:var(--text2)}
-  .band-hz{font-size:9px;color:var(--text3);display:block}
-  .band-track{height:6px;background:var(--bg3);border-radius:3px;overflow:hidden}
-  .band-fill{height:100%;border-radius:3px;transition:width .45s}
-  .band-val{font-size:12px;font-weight:500;color:var(--text);text-align:right}
-  .band-z{font-size:11px;text-align:right;font-variant-numeric:tabular-nums;color:var(--text3)}
-  canvas{display:block;width:100% !important}
-  .stat-card{background:var(--bg2);border-radius:var(--radius-sm);padding:.75rem 1rem;text-align:center}
-  .stat-val{font-size:22px;font-weight:500}
-  .stat-lbl{font-size:11px;color:var(--text2);margin-top:2px}
-  .timeline{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fffdf6}
+  .btn.primary:hover{background:var(--accent);filter:brightness(1.08)}
+  @media (prefers-color-scheme:dark){.btn.primary{color:#121a25}}
+  .btn.ghost{border-style:dashed;border-color:var(--accent2);color:var(--accent2)}
+  .btn.ghost:hover{background:var(--warm-soft)}
+  .btn[disabled]{opacity:.4;cursor:not-allowed}
+
+  .card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);
+        padding:1.15rem 1.35rem;margin-bottom:12px}
+
+  /* ---- hero ---- */
+  .hero{display:flex;align-items:center;gap:22px;padding:1.6rem;flex-wrap:wrap}
+  .hero-emoji{font-size:64px;line-height:1;flex-shrink:0}
+  .hero-body{flex:1;min-width:200px}
+  .hero-label{font-size:29px;font-weight:600;letter-spacing:-.02em;line-height:1.15}
+  .hero-desc{font-size:15px;color:var(--text2);margin-top:5px}
+  .hero-state{font-size:13px;color:var(--text3);margin-top:9px}
+  .meter{height:6px;background:var(--bg3);border-radius:99px;margin-top:13px;overflow:hidden}
+  .meter i{display:block;height:100%;width:0;border-radius:99px;transition:width .5s,background .4s}
+  .hero-num{text-align:right;flex-shrink:0}
+  .hero-num b{display:block;font-size:34px;font-weight:600;line-height:1}
+  .hero-num span{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.07em}
+
+  /* ---- signal strip ---- */
+  .quality{display:flex;align-items:center;gap:9px;font-size:13.5px;color:var(--text2);
+           background:var(--bg2);border-radius:99px;padding:9px 16px;margin-bottom:12px}
+  .quality::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--text3);flex-shrink:0}
+  .quality.good::before{background:var(--good)}
+  .quality.bad::before{background:var(--bad)}
+  .quality.bad{color:var(--bad)}
+  .quality .sr{margin-left:auto;font-size:12px;color:var(--text3)}
+
+  /* ---- bands ---- */
+  h2{font-size:13px;font-weight:600;color:var(--accent);text-transform:uppercase;
+     letter-spacing:.07em;margin-bottom:14px}
+  .band{display:grid;grid-template-columns:112px 1fr 42px;align-items:center;gap:12px;margin-bottom:11px}
+  .band:last-child{margin-bottom:0}
+  .band-name{font-size:13.5px;font-weight:500}
+  .band-what{display:block;font-size:11px;color:var(--text3);font-weight:400}
+  .band-track{height:9px;background:var(--bg3);border-radius:99px;overflow:hidden}
+  .band-fill{height:100%;border-radius:99px;width:0;transition:width .45s}
+  .band-val{font-size:13px;font-weight:500;text-align:right;font-variant-numeric:tabular-nums}
+
+  /* ---- timeline ---- */
+  .timeline{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
   .timeline::-webkit-scrollbar{display:none}
-  .emo-pill{display:flex;align-items:center;gap:5px;padding:4px 11px;border-radius:20px;border:0.5px solid var(--border);background:var(--bg2);white-space:nowrap;font-size:12px;color:var(--text2);flex-shrink:0}
-  .emo-pill.latest{background:var(--card);border-color:var(--border2);color:var(--text)}
-  .emo-pill small{color:var(--text3);font-size:10px}
-  .footer{text-align:center;font-size:11px;color:var(--text3);padding:.75rem 0 1rem;line-height:1.7}
-  .footer a{color:var(--text2)}
-  .ref-note{font-size:10px;color:var(--text3);margin-top:8px;line-height:1.55}
-  .cal-bar{height:4px;background:var(--bg3);border-radius:2px;margin-top:10px;overflow:hidden}
-  .cal-fill{height:4px;border-radius:2px;width:0%;background:#2563eb;transition:width .3s}
-  .notice{font-size:12px;color:var(--text2);background:var(--bg2);border-radius:var(--radius-sm);padding:10px 12px;line-height:1.55}
-  @media (prefers-reduced-motion: reduce){*{transition:none !important}}
+  .pill{display:flex;align-items:center;gap:6px;padding:6px 13px;border-radius:99px;
+        border:1px solid var(--border);background:var(--bg2);white-space:nowrap;
+        font-size:13px;color:var(--text2);flex-shrink:0}
+  .pill.now{background:var(--card);color:var(--text);font-weight:500}
+  .pill small{color:var(--text3);font-size:11px}
+
+  /* ---- collapsible ---- */
+  details{background:var(--card);border:1px solid var(--border);border-radius:var(--r);
+          margin-bottom:12px;overflow:hidden}
+  summary{padding:.95rem 1.35rem;cursor:pointer;font-size:14px;font-weight:500;
+          color:var(--text2);list-style:none;display:flex;align-items:center;gap:8px}
+  summary::-webkit-details-marker{display:none}
+  summary::before{content:"›";font-size:19px;line-height:1;color:var(--accent);
+                  transition:transform .2s;display:inline-block}
+  details[open] summary::before{transform:rotate(90deg)}
+  summary:hover{color:var(--text)}
+  .inner{padding:0 1.35rem 1.35rem}
+  .inner h3{font-size:12px;font-weight:600;color:var(--accent);text-transform:uppercase;
+            letter-spacing:.06em;margin:18px 0 9px}
+  .inner h3:first-child{margin-top:0}
+  .inner p{font-size:13px;color:var(--text2);margin-bottom:10px}
+  .inner p:last-child{margin-bottom:0}
+  .inner strong{color:var(--text)}
+  canvas{display:block;width:100%!important}
+  .code{font-family:var(--mono);font-size:12px;color:var(--text2);letter-spacing:.6px;
+        word-break:break-all;background:var(--bg2);border-radius:var(--rs);padding:9px 12px}
+  .code b{color:var(--accent)}
+  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-top:4px}
+  @media (max-width:560px){.grid{grid-template-columns:1fr 1fr}}
+  .stat{background:var(--bg2);border-radius:var(--rs);padding:.65rem;text-align:center}
+  .stat b{display:block;font-size:17px;font-weight:600;color:var(--accent)}
+  .stat span{font-size:11px;color:var(--text2)}
+  .zrow{display:flex;justify-content:space-between;font-size:12px;color:var(--text2);
+        padding:5px 0;border-bottom:1px solid var(--border)}
+  .zrow:last-child{border-bottom:none}
+  .warn{display:none;font-size:13px;color:var(--text2);background:var(--bg2);
+        border-left:3px solid var(--accent2);border-radius:var(--rs);padding:11px 14px;margin-bottom:12px}
+  .warn.on{display:block}
+  footer{text-align:center;font-size:11.5px;color:var(--text3);line-height:1.8;padding-top:8px}
+  footer a{color:var(--text2)}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
 <body>
-<div class="app">
-  <header class="topbar">
+<div class="wrap">
+
+  <header>
     <div class="brand">
-      <div class="brand-icon"><i class="ti ti-brain" aria-hidden="true"></i></div>
+      <div class="brand-icon">
+        <svg viewBox="0 0 48 48" width="25" height="25" fill="none" stroke="currentColor"
+             stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M24 7C21 4 15 5 14 10C10 10.5 7.5 14 9.5 17.5C7 19.5 7 24.5 10.5 26C10 30 13 33.5 17 33C18.5 36 22 37 24 34"/>
+          <path d="M24 7C27 4 33 5 34 10C38 10.5 40.5 14 38.5 17.5C41 19.5 41 24.5 37.5 26C38 30 35 33.5 31 33C29.5 36 26 37 24 34"/>
+          <path d="M24 8L24 34"/>
+        </svg>
+      </div>
       <div>
-        <div class="brand-name">EmotiWave <span class="badge-demo" id="demoBadge">demo</span> <span class="badge-cal" id="calBadge">baseline</span></div>
-        <div class="brand-sub">EEG Emotion Detector</div>
+        <div class="brand-name">EmotiWave</div>
+        <div class="brand-sub" id="brandSub">Reads emotion from your brainwaves</div>
       </div>
     </div>
-    <div class="topbar-right">
-      <div class="lead-off" id="leadOff"><i class="ti ti-plug-x" aria-hidden="true"></i> <span id="leadOffTxt">Lead off</span></div>
-      <div class="status-pill"><div class="dot" id="statusDot"></div><span id="statusTxt">Disconnected</span></div>
-      <button class="btn" id="recalBtn" onclick="recalibrate()" disabled><i class="ti ti-refresh" aria-hidden="true"></i> Recalibrate</button>
-      <button class="btn btn-demo" id="demoBtn" onclick="startDemo()"><i class="ti ti-sparkles" aria-hidden="true"></i> Demo</button>
-      <button class="btn" id="connectBtn" onclick="handleConnect()"><i class="ti ti-usb" aria-hidden="true"></i> Connect Maker UNO X</button>
+    <div class="actions">
+      <button class="btn ghost" id="demoBtn" onclick="startDemo()">Try demo</button>
+      <button class="btn primary" id="connectBtn" onclick="handleConnect()">Connect</button>
     </div>
   </header>
 
-  <main class="main">
-    <div class="no-serial" id="noSerial">
-      <i class="ti ti-alert-triangle" aria-hidden="true"></i>
-      Web Serial needs <strong>Chrome&nbsp;or&nbsp;Edge</strong>. Demo mode works in any browser.
-    </div>
+  <div class="warn" id="noSerial">
+    Live capture needs <strong>Chrome or Edge</strong>. Try the demo instead &mdash; it works in any browser.
+  </div>
 
-    <div class="emo-hero">
-      <div class="emo-emoji" id="emoEmoji">&#129504;</div>
-      <div class="emo-body">
-        <div class="emo-label" id="emoLabel">Connect to begin</div>
-        <div class="emo-desc" id="emoDesc">Plug in the Maker UNO X and choose Connect, or run Demo to see how each state looks.</div>
-        <div class="conf-track"><div class="conf-fill" id="confFill"></div></div>
-        <div class="cal-bar" id="calBar" style="display:none"><div class="cal-fill" id="calFill"></div></div>
+  <div class="quality" id="quality">
+    <span id="qualityTxt">Not connected</span>
+    <span class="sr" id="statSR"></span>
+  </div>
+
+  <div class="card hero">
+    <div class="hero-emoji" id="emoEmoji">&#129504;</div>
+    <div class="hero-body">
+      <div class="hero-label" id="emoLabel">Ready when you are</div>
+      <div class="hero-desc" id="emoDesc">Press Connect to use your headband, or Try demo to watch it work.</div>
+      <div class="hero-state" id="stateLine"></div>
+      <div class="meter"><i id="confFill"></i></div>
+      <div class="meter" id="calBar" style="display:none"><i id="calFill" style="background:var(--accent)"></i></div>
+    </div>
+    <div class="hero-num">
+      <span>Match</span>
+      <b id="confVal">&mdash;</b>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Your brainwaves</h2>
+    <div class="band"><span class="band-name">Delta<span class="band-what">deep sleep</span></span><div class="band-track"><div class="band-fill" id="bf-delta" style="background:#2f5d8a"></div></div><span class="band-val" id="bv-delta">&mdash;</span></div>
+    <div class="band"><span class="band-name">Theta<span class="band-what">drowsy, dreamy</span></span><div class="band-track"><div class="band-fill" id="bf-theta" style="background:#4e93b8"></div></div><span class="band-val" id="bv-theta">&mdash;</span></div>
+    <div class="band"><span class="band-name">Alpha<span class="band-what">calm, relaxed</span></span><div class="band-track"><div class="band-fill" id="bf-alpha" style="background:#4e9a94"></div></div><span class="band-val" id="bv-alpha">&mdash;</span></div>
+    <div class="band"><span class="band-name">Beta<span class="band-what">focused, thinking</span></span><div class="band-track"><div class="band-fill" id="bf-beta" style="background:#e0a93e"></div></div><span class="band-val" id="bv-beta">&mdash;</span></div>
+    <div class="band"><span class="band-name">Gamma<span class="band-what">alert, excited</span></span><div class="band-track"><div class="band-fill" id="bf-gamma" style="background:#cc7a3c"></div></div><span class="band-val" id="bv-gamma">&mdash;</span></div>
+  </div>
+
+  <div class="card">
+    <h2>What you have felt</h2>
+    <div class="timeline" id="timeline"><div class="pill" style="color:var(--text3)">Nothing yet</div></div>
+  </div>
+
+  <details ontoggle="panelOpened()">
+    <summary>Signal details</summary>
+    <div class="inner">
+      <h3>Sub-band energy &middot; how the emotion is decided</h3>
+      <canvas id="subCanvas" height="190"></canvas>
+      <p style="margin-top:10px">Each bar is one 1&nbsp;Hz slice of your brainwaves. Anything above the dashed 4% line counts as a 1, anything below as a 0. Only the six ringed bars differ between the eight emotions &mdash; those six decide the answer.</p>
+      <div class="code" id="codeLine"></div>
+      <h3>Compared with your resting baseline</h3>
+      <div id="zList"></div>
+      <h3>Live signal</h3>
+      <canvas id="waveCanvas" height="90"></canvas>
+      <p style="margin-top:8px;font-size:11.5px" id="mvRange">&mdash;</p>
+      <div class="grid">
+        <div class="stat"><b id="statState">&mdash;</b><span>Mental state</span></div>
+        <div class="stat"><b id="statFrames">0</b><span>Readings</span></div>
+        <div class="stat"><b id="statArt">0</b><span>Blinks skipped</span></div>
+        <div class="stat"><b id="statMode">&mdash;</b><span>Mode</span></div>
       </div>
-      <div class="conf-meta">
-        <div class="lbl">Confidence</div>
-        <div class="big" id="confVal">&mdash;</div>
-        <div class="lbl">%</div>
-      </div>
+      <p style="margin-top:12px" id="techLine"></p>
+      <button class="btn" id="recalBtn" onclick="recalibrate()" disabled style="margin-top:10px">Redo baseline</button>
     </div>
+  </details>
 
-    <div class="row2">
-      <div class="card">
-        <div class="card-lbl">Band power &middot; share of total, and deviation from your resting baseline</div>
-        <div style="font-size:11px;color:var(--text3);margin:-4px 0 10px">Delta is shown for signal checking only. It is not used to decide the emotion.</div>
-        <div class="bands">
-          <div class="band-row"><span class="band-name">delta<span class="band-hz">1&ndash;3 Hz</span></span><div class="band-track"><div class="band-fill" id="bf-delta" style="background:#4a90d9"></div></div><span class="band-val" id="bv-delta">&mdash;</span><span class="band-z" id="bz-delta">&mdash;</span></div>
-          <div class="band-row"><span class="band-name">theta<span class="band-hz">4&ndash;7 Hz</span></span><div class="band-track"><div class="band-fill" id="bf-theta" style="background:#7b68ee"></div></div><span class="band-val" id="bv-theta">&mdash;</span><span class="band-z" id="bz-theta">&mdash;</span></div>
-          <div class="band-row"><span class="band-name">alpha<span class="band-hz">8&ndash;12 Hz</span></span><div class="band-track"><div class="band-fill" id="bf-alpha" style="background:#22c55e"></div></div><span class="band-val" id="bv-alpha">&mdash;</span><span class="band-z" id="bz-alpha">&mdash;</span></div>
-          <div class="band-row"><span class="band-name">beta<span class="band-hz">13&ndash;30 Hz</span></span><div class="band-track"><div class="band-fill" id="bf-beta" style="background:#f97316"></div></div><span class="band-val" id="bv-beta">&mdash;</span><span class="band-z" id="bz-beta">&mdash;</span></div>
-          <div class="band-row"><span class="band-name">gamma<span class="band-hz">31&ndash;45 Hz</span></span><div class="band-track"><div class="band-fill" id="bf-gamma" style="background:#ef4444"></div></div><span class="band-val" id="bv-gamma">&mdash;</span><span class="band-z" id="bz-gamma">&mdash;</span></div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-lbl">Brainwave radar</div>
-        <canvas id="radarCanvas" height="180"></canvas>
-      </div>
+  <details ontoggle="panelOpened()">
+    <summary>How it works, and what to trust</summary>
+    <div class="inner">
+      <h3>Where the emotions come from</h3>
+      <p>Kao, Wang &amp; Chang (2015) recorded 15 people listening to emotional sounds and published an energy table for each of eight emotions. Every 1&nbsp;Hz slice is marked 1 if it holds more than 4% of the total, 0 if not, giving each emotion a 22-digit signature. EmotiWave works out your signature and finds the closest published match.</p>
+      <h3>What it cannot do</h3>
+      <p>Only <strong>6 of the 22 digits</strong> differ between the eight emotions, and each of those six sits within about half a percentage point of the 4% line. Joyful puts 3.62% in the 11&ndash;12&nbsp;Hz slice; Angry puts 4.13%. One dry forehead electrode and a 10-bit converter cannot reliably tell those apart. Treat the emotion as a working demonstration of a published method, not a measurement you would defend to a decimal place.</p>
+      <p><strong>Surprised and Fear share one signature.</strong> The paper says so, and separates them by which delta slice is strongest. That is built in, but it relies on the 0.5&ndash;1&nbsp;Hz range, where electrode drift lives, so it is the shakiest link.</p>
+      <h3>The reading you can trust</h3>
+      <p>The mental state &mdash; Relaxed, Focused, Drowsy and so on &mdash; comes from whole-band power compared against your own resting baseline. Those differences are large and survive this hardware comfortably. If you have to stake a live demonstration on one number, stake it on that.</p>
+      <h3>Getting a clean reading</h3>
+      <p><strong>Keep your eyes open</strong> and fixed on one spot. Closing your eyes raises alpha far more than any emotion does.<br>
+      <strong>Sit still during the baseline.</strong> The first 30 seconds learn what your resting brain looks like.<br>
+      <strong>Press the electrodes down</strong> if the signal bar turns red.</p>
     </div>
+  </details>
 
-    <div class="row4">
-      <div class="stat-card"><div class="stat-val" id="statSR">&mdash;</div><div class="stat-lbl">Sample rate (Hz)</div></div>
-      <div class="stat-card"><div class="stat-val" id="statPkt">0</div><div class="stat-lbl">Packets received</div></div>
-      <div class="stat-card"><div class="stat-val" id="statDrop">0</div><div class="stat-lbl">Artifacts rejected</div></div>
-      <div class="stat-card"><div class="stat-val" id="statDom">&mdash;</div><div class="stat-lbl">Strongest shift</div></div>
-    </div>
-
-    <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:12px">
-        <div class="card-lbl" style="margin-bottom:0">Raw EEG waveform</div>
-        <span style="font-size:11px;color:var(--text2)" id="mvRange">&mdash;</span>
-      </div>
-      <div id="waveWrap"><canvas id="waveCanvas" height="90"></canvas></div>
-      <div class="ref-note">Amplitude is measured at the amplifier output in millivolts, not at the scalp. Divide by the EXG Pill's gain to state a scalp figure in microvolts.</div>
-    </div>
-
-    <div class="card">
-      <div class="card-lbl">Band power &middot; last 30 s</div>
-      <canvas id="histCanvas" height="100"></canvas>
-    </div>
-
-    <div class="card">
-      <div class="card-lbl" style="margin-bottom:8px">Emotion timeline</div>
-      <div class="timeline" id="timeline"><div class="emo-pill" style="color:var(--text3)">Nothing recorded yet</div></div>
-    </div>
-
-    <div class="card">
-      <div class="card-lbl">How to get an accurate reading</div>
-      <div class="notice">
-        <strong>Keep your eyes open and fixed on one point.</strong> Alpha rises sharply when the eyes close &mdash; far more than any emotion moves it &mdash; so a single blink-heavy stretch will swamp the measurement. (Sisode 2016 states the opposite, that alpha is stronger with eyes open; that is an error in the paper and following it will spoil your data.)<br><br>
-        <strong>Sit still through the baseline.</strong> The first 30 seconds after connecting measure your own resting band powers. Every reading afterwards is scored against that, per Sisode's baseline-first method. Jaw clenching or eyebrow movement during this window will bias everything that follows &mdash; press Recalibrate if it happens.<br><br>
-        <strong>Watch the rejection counter.</strong> Windows where delta swamps everything else, or where the amplitude spikes, are thrown away rather than classified &mdash; that pattern is a blink, not a brain state. A few rejections a minute is normal. Constant rejection means the electrodes need reseating or you are blinking heavily.<br><br>
-        <strong>The rules below are engineering, not published findings.</strong> Neither attached paper contains a threshold rule set. Every one of the 13 methods surveyed by Li, Chao &amp; Zhang trains a supervised classifier on labelled data, reaching 62&ndash;93.5% accuracy. The mapping here is inferred from the descriptive band associations in those papers and should be described that way.
-      </div>
-    </div>
-
-    <div class="footer">
-      EmotiWave &middot; Maker UNO X + BioAmp EXG Pill &middot; Fp1&ndash;Fp2 bipolar, earlobe reference<br>
-      References: Sisode (2016), <em>Emotions and Brain Waves</em>; Li, Chao &amp; Zhang (2019), <em>Emotion classification based on brain wave: a survey</em><br>
-      Live capture needs the <a href="https://caniuse.com/web-serial" target="_blank" rel="noopener">Web Serial API</a> (Chrome/Edge)
-    </div>
-  </main>
+  <footer>
+    Maker UNO X + BioAmp EXG Pill &middot; Fp1&ndash;Fp2 with earlobe reference<br>
+    Kao, Wang &amp; Chang (2015) &middot; Li, Chao &amp; Zhang (2019) &middot; Sisode (2016)
+  </footer>
 </div>
 
 <script>
+
 'use strict';
 
 // ════════════════════════════════════════════════════════════════
-// EmotiWave dashboard v4
+// EmotiWave - EEG emotion detector
 //
-// What changed from v3, and why recognition was wrong:
+// TWO INDEPENDENT READINGS, from two different papers:
 //
-// FIX 1 - bandPow returned MEAN POWER PER BIN (p / c), not band
-//   power. Bins are 0.25 Hz wide, so the bands hold very different
-//   numbers of them: delta 9, theta 13, alpha 17, beta 69,
-//   gamma 57. Dividing by the bin count does not make that fair -
-//   combined with EEG's natural 1/f slope it inflated delta by
-//   roughly 10x against everything else, which is why the display
-//   sat on "Sleepy". Band power is the SUM over bins. Fixed.
+//   EMOTION  - Kao, Wang & Chang (2015). 1 Hz sub-band energies, each
+//              coded 1 if it exceeds 4% of total energy. The resulting
+//              22-bit word is matched against their published table of
+//              eight emotions.
 //
-// FIX 2 - the 3-tap moving average was removed. Its -3 dB point is
-//   near 55 Hz, not the 85 Hz claimed in v3, and it attenuated
-//   40 Hz by about half in power terms. Since classification runs
-//   on ratios between bands, a filter that hits gamma twice as hard
-//   as alpha directly biases the answer. The Hann window already
-//   handles spectral leakage.
+//   STATE    - Li, Chao & Zhang (2019) Table 1 band associations plus
+//              Sisode (2016) baseline-first method. Band powers are
+//              z-scored against the subject's own resting baseline.
 //
-// FIX 3 - classification is now baseline-relative. Absolute
-//   dominance cannot work on a single frontal electrode: resting
-//   EEG at Fp1 is delta/theta heavy by nature, so delta "wins"
-//   almost always and no fixed cutoff separates the states. Sisode
-//   (2016) compared against a resting measurement, and that method
-//   transfers. Each band is now scored as a z-score against the
-//   subject's own 12-second resting baseline.
-//
-// FIX 4 - the lead-off guard rejected real delta. v3 flagged bad
-//   contact when meanDiff/rms < 0.05. For a sinusoid that ratio is
-//   about 5.657 * f / Fs, so the threshold meant "anything below
-//   2.3 Hz is a broken electrode" - and the delta band is 1-3 Hz.
-//   Genuine drowsy EEG was thrown away. Replaced with a drift-ratio
-//   test (power below 1 Hz vs power in 1-45 Hz) plus a flat-line
-//   check, neither of which penalises low-frequency signal.
-//
-// FIX 5 - one FFT per analysis instead of five.
-//
-// FIX 6 - demo phases are specified as target band powers and the
-//   generator derives amplitudes from them, so what is written in
-//   DEMO_PHASES is what the dashboard reads back. In v3 the phase
-//   weights were applied as amplitudes and then passed through the
-//   per-bin division, so four of the six phases classified as
-//   "Drowsy" - the Stressed, Excited and Focused rules never fired
-//   even in demo.
-//
-// FIX 7 - confidence no longer rewards the failure mode. A drifting
-//   electrode used to produce 100% confidence on a wrong answer.
+// Why both: Kao's own tables show the BAND-level percentages barely
+// move between emotions (Joyful alpha 31.45% vs Angry 31.86%, beta
+// 36.59% vs 35.41%). A band-ratio classifier therefore cannot
+// separate emotions - it can only separate arousal states. The
+// emotion information lives at 1 Hz resolution. Keeping both makes
+// that limitation visible instead of hiding it.
 // ════════════════════════════════════════════════════════════════
 
-// ---- Configuration (fs / scale are overwritten by the firmware's init packet)
-let FS = 256;
-let SCALE = 10;
-let EXPECT_PKT = 32;
-const WIN_SEC = 4;                 // 4 s window -> 0.25 Hz resolution
-let WIN = FS * WIN_SEC;            // 1024 samples
+let FS = 256, SCALE = 10, EXPECT_PKT = 32;
+const WIN_SEC = 8;                 // 8 s -> 0.125 Hz bins -> 8 bins per 1 Hz sub-band
+let WIN = FS * WIN_SEC;
 let STEP = Math.round(FS / 4);     // analyse 4x per second
 
+// ---- Li, Chao & Zhang (2019) Table 1 bands, for the state reading ----
 const BANDS = {
-  delta: [1,  3,  '#4a90d9'],
-  theta: [4,  7,  '#7b68ee'],
-  alpha: [8,  12, '#22c55e'],
-  beta:  [13, 30, '#f97316'],
-  gamma: [31, 45, '#ef4444'],      // FIX: was 31-50, see note in the UI
+  delta: [1,  3,  '#2f5d8a'],
+  theta: [4,  7,  '#4e93b8'],
+  alpha: [8,  12, '#4e9a94'],
+  beta:  [13, 30, '#e0a93e'],
+  gamma: [31, 45, '#cc7a3c'],
 };
 const BAND_ORDER = ['delta','theta','alpha','beta','gamma'];
+const CLASS_BANDS = ['theta','alpha','beta','gamma'];   // delta excluded: eye artifact
 
-// Bands used to decide the emotion. Delta is deliberately excluded.
-// At Fp1/Fp2 the 1-3 Hz band is dominated by blinks and eye movement, not
-// cortex - real delta only appears in deep sleep. Worse, because the five
-// bands are normalised to sum to 1, a delta spike mechanically pushes every
-// other band's share down, which is exactly the pattern the drowsy rule
-// looks for. So delta now acts as the artifact detector instead.
-const CLASS_BANDS = ['theta','alpha','beta','gamma'];
-const DELTA_ARTIFACT = 0.60;       // delta share above this = blink, drop the frame
-const P2P_ARTIFACT = 3.0;          // peak-to-peak above 3x resting = movement/blink
+// ---- Kao et al. (2015) sub-bands. Their delta starts at 0.2 Hz; the
+//      firmware high-pass now sits at 0.5 Hz, so d1 is 0.5-1 Hz here.
+const SUBBANDS = [
+  ['d1',0.5,1],['d2',1,2],['d3',2,3],['d4',3,4],
+  ['t1',4,5],['t2',5,6],['t3',6,7],['t4',7,8],
+  ['a1',8,9],['a2',9,10],['a3',10,11],['a4',11,12],['a5',12,13],
+  ['b1',13,14],['b2',14,15],['b3',15,16],['b4',16,17],['b5',17,18],
+  ['b6',18,19],['b7',19,20],['b8',20,21],['b9',21,22],
+];
+const NSUB = SUBBANDS.length;
+const TOTAL_HI = 25;               // Kao normalises over 0.2-25 Hz
 
-// Baseline sampling.
-//
-// The v4 release collected one frame every analysis (0.25 s) for 12 s. With a
-// 4 s window that means consecutive frames shared 15/16 of their samples -
-// they were not independent, so the measured standard deviation reflected
-// window jitter rather than real resting variability. It came out far too
-// small, every band then read as a huge deviation, and whichever rule sat
-// earliest in the list won. Sampling every 1.5 s over 30 s gives frames that
-// overlap 62% instead of 94%, and a standard deviation that means something.
-const BASELINE_STRIDE = 6;         // take one frame per 6 analyses = 1.5 s
-const BASELINE_FRAMES = 20;        // 20 x 1.5 s = 30 s
-const SD_FLOOR = 0.10;             // on the log scale; stops a quiet baseline exploding the z-score
-const Z_MAIN = 1.5;                // how far a band must move to count
-const SMOOTH = 0.45;               // EMA weight on new band powers
-const HOLD_FRAMES = 3;             // a label must repeat before it is shown
+// Kao's rule is "above 4% of total energy". Their 22 sub-bands account for
+// essentially all of that total, so the mean sub-band share is 100/22 =
+// 4.55% and the threshold is 0.88x the mean. Expressing it as a ratio to
+// the mean keeps the rule correct even though our frequency span starts at
+// 0.5 Hz rather than 0.2 Hz and so normalises slightly differently.
+const KAO_RATIO = 0.88;
+const KAO_SOFT = 0.11;             // softness of the threshold, as a fraction of the mean
 
-// ════════════════════════════════════════════════════════════════
-// Classification rules
-//
-// Inputs are z-scores against the subject's own resting baseline.
-// Ordered: the two-band patterns are tested before the single-band
-// ones, otherwise a co-elevated pair gets claimed by whichever
-// single band happens to be marginally higher.
-// ════════════════════════════════════════════════════════════════
-// Every state is scored, and the highest score wins.
-//
-// The previous version used first-match-wins with hard gates, and two states
-// turned out to be unreachable in practice:
-//
-//   Focused required theta below 0.5 SD. Blinks leak into 4-7 Hz, so theta
-//   sits high, and because the four shares are renormalised to sum to 1, high
-//   theta mechanically pushes beta's share down. Beta could never be strongest.
-//
-//   Excited required gamma above 1.5 SD. Gamma's share is small and so is its
-//   real variation, so the absolute SD floor divided it by a number far larger
-//   than its true spread and shrank its z-score. It could never clear the bar.
-//
-// Scoring against a template removes both failure modes: no state can be
-// blocked by another state's gate, and a band that moves in the right pattern
-// contributes even when it does not win outright.
+// ---- Table 6: digital encoding of the eight emotions -----------------
+// Order of bits: d1 d2 d3 d4 | t1 t2 t3 t4 | a1 a2 a3 a4 a5 | b1..b9
+const KAO = [
+  { name:'Joyful',      emoji:'\u{1F60A}', color:'#e0a53c', valence:'positive', plain:'Bright and positive.',
+    code:'0001'+'1100'+'01100'+'000000110', measured:true },
+  { name:'Angry',       emoji:'\u{1F620}', color:'#bf5a45', valence:'negative', plain:'Strongly stirred up, in a negative way.',
+    code:'0001'+'1100'+'01110'+'000000110', measured:true },
+  { name:'Surprised',   emoji:'\u{1F62E}', color:'#cf8434', valence:'positive', plain:'Suddenly alert, leaning positive.',
+    code:'1001'+'1100'+'01100'+'000000110', measured:true },
+  { name:'Fear',        emoji:'\u{1F628}', color:'#7a8fc4', valence:'negative', plain:'Suddenly alert, leaning negative.',
+    code:'1001'+'1100'+'01100'+'000000110', measured:true },
+  { name:'Protected',   emoji:'\u{1F917}', color:'#5a9c86', valence:'positive', plain:'Calm and secure.',
+    code:'1001'+'1000'+'11100'+'000000110', measured:false },
+  { name:'Sad',         emoji:'\u{1F622}', color:'#4b7ca8', valence:'negative', plain:'Low and heavy.',
+    code:'0001'+'1000'+'11110'+'000000111', measured:false },
+  { name:'Satisfied',   emoji:'\u{1F60C}', color:'#4e9a94', valence:'positive', plain:'Content and settled.',
+    code:'1000'+'1100'+'01110'+'000000110', measured:false },
+  { name:'Unconcerned', emoji:'\u{1F610}', color:'#8e8878', valence:'negative', plain:'Flat and disengaged.',
+    code:'1001'+'1000'+'01100'+'000000110', measured:false },
+];
+
+// Which bits actually vary across the eight codes? Only those carry
+// discriminative information; the rest are the same for every emotion and
+// serve only as a check that the signal looks like EEG at all.
+const VARY = [];
+for (let i = 0; i < NSUB; i++) {
+  const first = KAO[0].code[i];
+  if (KAO.some(e => e.code[i] !== first)) VARY.push(i);
+}
+// -> d1(0), d4(3), t2(5), a1(8), a4(11), b9(21)
+
+// ---- State templates (Li Table 1 + Sisode), scored on band z-scores ----
+const SD_FLOOR = 0.10;             // on the log scale
+const Z_LEAVE_NEUTRAL = 2.4;
 const TEMPLATES = [
-  {
-    label: 'Stressed / Anxious', emoji: '\u{1F630}', color: '#ef4444',
-    w: { theta: -0.2, alpha: -0.6, beta: 0.8, gamma: 0.8 },
-    desc: 'Beta and gamma both up while alpha drops. Li, Chao & Zhang link high beta to sustained attention and gamma to arousal; Sisode found suppressed alpha in the non-relaxed condition.'
-  },
-  {
-    label: 'Excited / Happy', emoji: '\u{1F604}', color: '#eab308',
-    w: { theta: -0.3, alpha: 0.1, beta: 0.2, gamma: 1.0 },
-    desc: 'Gamma leads with alpha holding. Li, Chao & Zhang associate gamma with happiness and with released stress.'
-  },
-  {
-    label: 'Focused / Alert', emoji: '\u{1F3AF}', color: '#f97316',
-    w: { theta: -0.4, alpha: -0.2, beta: 1.0, gamma: 0.2 },
-    desc: 'Beta leads with theta falling back. Li, Chao & Zhang: beta rises with concentration and increased attention.'
-  },
-  {
-    label: 'Relaxed / Calm', emoji: '\u{1F60C}', color: '#22c55e',
-    w: { theta: -0.3, alpha: 1.0, beta: -0.3, gamma: -0.2 },
-    desc: 'Alpha leads. This is the effect Sisode (2016) measured: alpha higher in the happy condition (mean 5.64) than the sad one (3.24), t = 2.46, p < 0.01.'
-  },
-  {
-    label: 'Creative / Dreamy', emoji: '\u{1F319}', color: '#7b68ee',
-    w: { theta: 1.0, alpha: 0.4, beta: -0.5, gamma: -0.4 },
-    desc: 'Theta leads with alpha still present. Li, Chao & Zhang describe theta as the subconscious, meditative state.'
-  },
-  {
-    label: 'Drowsy / Sleepy', emoji: '\u{1F634}', color: '#4a90d9',
-    w: { theta: 1.0, alpha: -0.5, beta: -0.7, gamma: -0.5 },
-    desc: 'Theta up while alpha and beta both fall away. Li, Chao & Zhang place theta at the drowsy, shallow-sleep end.'
-  },
+  { label:'Stressed', w:{theta:-0.2, alpha:-0.6, beta:0.8,  gamma:0.8}  },
+  { label:'Excited',  w:{theta:-0.3, alpha:0.1,  beta:0.2,  gamma:1.0}  },
+  { label:'Focused',  w:{theta:-0.4, alpha:-0.2, beta:1.0,  gamma:0.2}  },
+  { label:'Relaxed',  w:{theta:-0.3, alpha:1.0,  beta:-0.3, gamma:-0.2} },
+  { label:'Dreamy',   w:{theta:1.0,  alpha:0.4,  beta:-0.5, gamma:-0.4} },
+  { label:'Drowsy',   w:{theta:1.0,  alpha:-0.5, beta:-0.7, gamma:-0.5} },
 ];
 TEMPLATES.forEach(t => {
-  let n = 0;
-  for (const b of CLASS_BANDS) n += t.w[b] * t.w[b];
+  let n = 0; for (const b of CLASS_BANDS) n += t.w[b]*t.w[b];
   t.norm = Math.sqrt(n);
 });
 
-const NEUTRAL = {
-  label: 'Neutral', emoji: '\u{1F610}', color: '#888787',
-  desc: 'Every band is close to your resting baseline. No emotional shift to report.'
-};
+// ---- Artifact + baseline ----
+const DELTA_ARTIFACT = 0.60;
+const P2P_ARTIFACT = 3.0;
+const SUB_SMOOTH = 0.18;           // slow EMA on sub-band shares (emotion moves slowly)
+const BAND_SMOOTH = 0.45;
+const HOLD_FRAMES = 3;
+let baseStride = 8, baseFrames = 15;   // live: every 2 s x 15 = 30 s
 
-// Project the observed z-vector onto each template. The projection is in the
-// same SD units as the z-scores, so Z_MAIN reads the same as it did before.
-function classify(z) {
-  let best = null, bestScore = -Infinity, second = -Infinity;
-  for (const t of TEMPLATES) {
-    let dot = 0;
-    for (const b of CLASS_BANDS) dot += z[b] * t.w[b];
-    const score = dot / t.norm;
-    if (score > bestScore) { second = bestScore; bestScore = score; best = t; }
-    else if (score > second) { second = score; }
-  }
-  return { rule: bestScore >= Z_MAIN ? best : NEUTRAL, score: bestScore, margin: bestScore - second };
-}
-
-// ---- State ------------------------------------------------------
+// ---- State ----
 let ring = [], stepAcc = 0, running = false, demoMode = false;
-let demoT = 0, demoPhase = 0, demoPhaseSamp = 0, demoInterval = null;
-let bandHist = {}, emoHist = [];
-let bpSmooth = null, lastZ = null;
+let demoT = 0, demoSamp = 0, demoInterval = null;
+let subSmooth = null, bandSmooth = null, lastSub = null, lastBits = null;
+let curEmo = { emoji:'\u{1F9E0}', label:'Ready when you are', color:'#8e8878', desc:'', conf:0, bp:null, z:null, code:null };
+let curState = '\u2014';
 let pendingLabel = null, pendingCount = 0;
-let curEmo = { emoji:'\u{1F9E0}', label:'Connect to begin', color:'#888', desc:'', conf:0, bp:null, z:null };
-let pktCount = 0, dropCount = 0, artifactCount = 0, baseTick = 0, srCount = 0, srTimer = Date.now(), lastPktNum = null;
+let emoHist = [];
+let frames = 0, artifacts = 0, srCount = 0, srTimer = Date.now(), lastPktNum = null, baseTick = 0;
 let port = null, reader = null, animId = null, needsRedraw = true;
 let firmwareLeadOff = false, qualityLeadOff = false, leadOffReason = '';
 let base = { frames: [], p2p: [], delta: [], p2pMed: 1, deltaMax: DELTA_ARTIFACT, mean: null, sd: null, ready: false };
-BAND_ORDER.forEach(b => bandHist[b] = []);
 
 // ════════════════════════════════════════════════════════════════
 // DSP
@@ -393,150 +379,149 @@ function fft(re, im) {
     let bit = n >> 1;
     for (; j & bit; bit >>= 1) j ^= bit;
     j ^= bit;
-    if (i < j) {
-      let t = re[i]; re[i] = re[j]; re[j] = t;
-      t = im[i]; im[i] = im[j]; im[j] = t;
-    }
+    if (i < j) { let t=re[i];re[i]=re[j];re[j]=t; t=im[i];im[i]=im[j];im[j]=t; }
   }
   for (let len = 2; len <= n; len <<= 1) {
-    const ang = -2 * Math.PI / len;
-    const half = len >> 1;
+    const ang = -2*Math.PI/len, half = len >> 1;
     for (let i = 0; i < n; i += len) {
       for (let k = 0; k < half; k++) {
-        const cr = Math.cos(ang * k), ci = Math.sin(ang * k);
-        const pr = cr * re[i+k+half] - ci * im[i+k+half];
-        const pi = cr * im[i+k+half] + ci * re[i+k+half];
-        re[i+k+half] = re[i+k] - pr;
-        im[i+k+half] = im[i+k] - pi;
-        re[i+k] += pr;
-        im[i+k] += pi;
+        const cr = Math.cos(ang*k), ci = Math.sin(ang*k);
+        const pr = cr*re[i+k+half] - ci*im[i+k+half];
+        const pi = cr*im[i+k+half] + ci*re[i+k+half];
+        re[i+k+half] = re[i+k]-pr; im[i+k+half] = im[i+k]-pi;
+        re[i+k] += pr; im[i+k] += pi;
       }
     }
   }
 }
 
-// One FFT, reused for every band and for the quality check.  FIX 5
 function spectrum(sig) {
-  let n = 1;
-  while (n * 2 <= sig.length) n *= 2;
+  let n = 1; while (n*2 <= sig.length) n *= 2;
   const start = sig.length - n;
-  let mean = 0;
-  for (let i = 0; i < n; i++) mean += sig[start + i];
+  let mean = 0; for (let i = 0; i < n; i++) mean += sig[start+i];
   mean /= n;
   const re = new Float64Array(n), im = new Float64Array(n);
   for (let i = 0; i < n; i++) {
-    const w = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / (n - 1));   // Hann
-    re[i] = (sig[start + i] - mean) * w;
+    const w = 0.5 - 0.5*Math.cos(2*Math.PI*i/(n-1));
+    re[i] = (sig[start+i]-mean)*w;
   }
   fft(re, im);
-  const half = n >> 1;
-  const p = new Float64Array(half);
+  const half = n >> 1, p = new Float64Array(half);
   for (let i = 0; i < half; i++) p[i] = re[i]*re[i] + im[i]*im[i];
-  return { p, binHz: FS / n };
+  return { p, binHz: FS/n };
 }
 
-// FIX 1: band power is the SUM over the band's bins.
+function sumBins(spec, lo, hi) {
+  const i0 = Math.max(1, Math.ceil(lo/spec.binHz));
+  const i1 = Math.min(Math.floor(hi/spec.binHz), spec.p.length-1);
+  let s = 0; for (let i = i0; i <= i1; i++) s += spec.p[i];
+  return s;
+}
+
+// Band power = SUM over the band's bins, normalised across the five bands.
 function bandPowers(spec) {
-  const bp = {};
-  let tot = 0;
-  for (const b of BAND_ORDER) {
-    const lo = BANDS[b][0], hi = BANDS[b][1];
-    const i0 = Math.ceil(lo / spec.binHz);
-    const i1 = Math.min(Math.floor(hi / spec.binHz), spec.p.length - 1);
-    let s = 0;
-    for (let i = i0; i <= i1; i++) s += spec.p[i];
-    bp[b] = s;
-    tot += s;
-  }
+  const bp = {}; let tot = 0;
+  for (const b of BAND_ORDER) { bp[b] = sumBins(spec, BANDS[b][0], BANDS[b][1]); tot += bp[b]; }
   for (const b of BAND_ORDER) bp[b] /= (tot + 1e-12);
   return bp;
 }
 
-// FIX 4: quality check that does not punish low-frequency signal.
+// Kao sub-band shares, normalised over 0.5-25 Hz as their Eq. (2) and (3).
+function subShares(spec) {
+  const tot = sumBins(spec, 0.5, TOTAL_HI) + 1e-12;
+  const out = new Array(NSUB);
+  for (let i = 0; i < NSUB; i++) out[i] = sumBins(spec, SUBBANDS[i][1], SUBBANDS[i][2]) / tot;
+  return out;
+}
+
 function signalQuality(sig, spec) {
   let ss = 0, sat = 0;
-  for (let i = 0; i < sig.length; i++) {
-    ss += sig[i] * sig[i];
-    if (Math.abs(sig[i]) > 2400) sat++;      // near the +-2500 mV rail
-  }
-  const rms = Math.sqrt(ss / sig.length);
-  const satFrac = sat / sig.length;
-
-  let drift = 0, eeg = 0;
-  const iDrift = Math.floor(1 / spec.binHz);
-  for (let i = 1; i < iDrift; i++) drift += spec.p[i];      // bin 0 is DC, skip
-  const iLo = Math.ceil(1 / spec.binHz);
-  const iHi = Math.min(Math.floor(45 / spec.binHz), spec.p.length - 1);
-  for (let i = iLo; i <= iHi; i++) eeg += spec.p[i];
-
-  const driftRatio = drift / (drift + eeg + 1e-12);
-
-  if (rms < 0.5)        return { ok:false, reason:'No signal' };
-  if (satFrac > 0.05)   return { ok:false, reason:'Electrode railed' };
+  for (let i = 0; i < sig.length; i++) { ss += sig[i]*sig[i]; if (Math.abs(sig[i]) > 2400) sat++; }
+  const rms = Math.sqrt(ss/sig.length);
+  const drift = sumBins(spec, 0.125, 0.5);
+  const eeg = sumBins(spec, 1, 45);
+  const driftRatio = drift/(drift+eeg+1e-12);
+  if (rms < 0.5) return { ok:false, reason:'No signal' };
+  if (sat/sig.length > 0.05) return { ok:false, reason:'Electrode railed' };
   if (driftRatio > 0.80) return { ok:false, reason:'Contact drifting' };
   return { ok:true, reason:'' };
 }
 
 // ════════════════════════════════════════════════════════════════
-// Baseline + classification                                  FIX 3
+// Kao emotion classifier
 // ════════════════════════════════════════════════════════════════
-// Renormalise the four classification bands so they sum to 1 without delta.
-// Dropping delta from the denominator also removes its noise from every
-// other band's share, which is why the remaining bands get steadier.
-function classBands(bp) {
-  let s = 0;
-  for (const b of CLASS_BANDS) s += bp[b];
-  const o = {};
-  for (const b of CLASS_BANDS) o[b] = bp[b] / (s + 1e-12);
-  return o;
+// Soft bits: a hard 4% cut would flip on noise, since the six informative
+// sub-bands sit within half a percentage point of the line in the paper's
+// own data. A logistic gives each bit a confidence between 0 and 1, and a
+// bit sitting exactly on the threshold contributes nothing either way
+// instead of contributing a coin flip.
+function softBits(sub) {
+  const mean = 1/NSUB;
+  const thr = KAO_RATIO*mean, soft = KAO_SOFT*mean;
+  return sub.map(v => 1/(1 + Math.exp(-(v-thr)/soft)));
 }
 
-// Baseline statistics are taken on the LOG of each share.
-//
-// On a linear share, an absolute SD floor punishes small bands: gamma sits
-// near 11% with a correspondingly small spread, so a fixed 0.02 floor divided
-// it by far more than its real variation and crushed its z-score. Beta, at
-// nearly 30%, was unaffected. On a log scale a proportional change counts the
-// same whatever the band's size - gamma going 5% to 10% scores like beta going
-// 25% to 50% - so no band is structurally louder or quieter than another.
-// Band powers are close to log-normal, so this is also the better-behaved
-// statistic.
+function kaoClassify(sub) {
+  const b = softBits(sub);
+  const scored = KAO.map(e => {
+    let s = 0;
+    for (const i of VARY) { const c = e.code[i] === '1' ? 1 : 0; s += c*b[i] + (1-c)*(1-b[i]); }
+    return { e, s: s/VARY.length };
+  });
+  scored.sort((x,y) => y.s - x.s);
+
+  let best = scored[0].e;
+  // Surprised and Fear carry identical codes - the paper resolves them by
+  // which delta sub-band holds the most energy (Table 7): 3-4 Hz means
+  // Surprised, 0.5-1 Hz means Fear.
+  if (best.name === 'Surprised' || best.name === 'Fear') {
+    const wantFear = sub[0] > sub[3];
+    best = KAO.find(e => e.name === (wantFear ? 'Fear' : 'Surprised'));
+  }
+  // Runner-up excluding the Surprised/Fear twin, so the margin is meaningful
+  const alt = scored.find(x => x.e.name !== best.name &&
+              !((best.name === 'Surprised' && x.e.name === 'Fear') ||
+                (best.name === 'Fear' && x.e.name === 'Surprised')));
+  return { emo: best, score: scored[0].s, margin: scored[0].s - (alt ? alt.s : 0), bits: b };
+}
+
+// ════════════════════════════════════════════════════════════════
+// Baseline and mental state
+// ════════════════════════════════════════════════════════════════
+function classBands(bp) {
+  let s = 0; for (const b of CLASS_BANDS) s += bp[b];
+  const o = {}; for (const b of CLASS_BANDS) o[b] = bp[b]/(s+1e-12);
+  return o;
+}
+// Log shares: a doubling of gamma then counts the same as a doubling of
+// beta, so a small band is not systematically muted by a fixed SD floor.
 function logShares(cb) {
-  const o = {};
-  for (const b of CLASS_BANDS) o[b] = Math.log(Math.max(cb[b], 1e-4));
+  const o = {}; for (const b of CLASS_BANDS) o[b] = Math.log(Math.max(cb[b], 1e-4));
   return o;
 }
 
 function addBaselineFrame(cb, p2p, deltaShare) {
   baseTick++;
-  const pct = Math.min(1, base.frames.length / BASELINE_FRAMES);
-  document.getElementById('calFill').style.width = Math.round(pct * 100) + '%';
-  if (baseTick % BASELINE_STRIDE !== 0) return;     // space the samples out
-
+  document.getElementById('calFill').style.width =
+    Math.round(100*Math.min(1, base.frames.length/baseFrames)) + '%';
+  if (baseTick % baseStride !== 0) return;
   base.frames.push(logShares(cb));
   base.p2p.push(p2p);
   base.delta.push(deltaShare);
-  if (base.frames.length < BASELINE_FRAMES) return;
+  if (base.frames.length < baseFrames) return;
 
   base.mean = {}; base.sd = {};
   for (const b of CLASS_BANDS) {
-    let m = 0;
-    for (const f of base.frames) m += f[b];
+    let m = 0; for (const f of base.frames) m += f[b];
     m /= base.frames.length;
-    let v = 0;
-    for (const f of base.frames) v += (f[b] - m) * (f[b] - m);
-    v /= Math.max(1, base.frames.length - 1);
+    let v = 0; for (const f of base.frames) v += (f[b]-m)*(f[b]-m);
     base.mean[b] = m;
-    base.sd[b] = Math.sqrt(v);
+    base.sd[b] = Math.sqrt(v/Math.max(1, base.frames.length-1));
   }
-  const sorted = base.p2p.slice().sort((a, b) => a - b);
-  base.p2pMed = sorted[Math.floor(sorted.length / 2)] || 1;
-  // Adaptive blink threshold: your own resting delta plus a wide margin,
-  // never stricter than the fixed ceiling.
-  let dm = 0;
-  for (const d of base.delta) dm += d;
-  dm /= base.delta.length;
-  base.deltaMax = Math.min(DELTA_ARTIFACT, Math.max(0.35, dm + 0.20));
+  const sorted = base.p2p.slice().sort((a,b) => a-b);
+  base.p2pMed = sorted[Math.floor(sorted.length/2)] || 1;
+  let dm = 0; for (const d of base.delta) dm += d;
+  base.deltaMax = Math.min(DELTA_ARTIFACT, Math.max(0.35, dm/base.delta.length + 0.20));
   base.ready = true;
   document.getElementById('calBadge').style.display = 'none';
   document.getElementById('calBar').style.display = 'none';
@@ -544,29 +529,20 @@ function addBaselineFrame(cb, p2p, deltaShare) {
 }
 
 function zscores(cb) {
-  const ls = logShares(cb);
-  const z = {};
-  for (const b of CLASS_BANDS) {
-    const raw = (ls[b] - base.mean[b]) / Math.max(base.sd[b], SD_FLOOR);
-    z[b] = Math.max(-8, Math.min(8, raw));
-  }
+  const ls = logShares(cb), z = {};
+  for (const b of CLASS_BANDS)
+    z[b] = Math.max(-8, Math.min(8, (ls[b]-base.mean[b])/Math.max(base.sd[b], SD_FLOOR)));
   return z;
 }
 
-// FIX 7: confidence reflects how far the profile is from resting,
-// and for Neutral, how convincingly close to resting it is.
-// Confidence combines how far the profile moved with how clearly the winning
-// pattern beat the runner-up. Two states scoring nearly the same is exactly
-// when the answer should be reported as uncertain.
-function confidence(z, verdict) {
-  if (verdict.rule === NEUTRAL) {
-    let peak = 0;
-    for (const b of CLASS_BANDS) peak = Math.max(peak, Math.abs(z[b]));
-    return Math.max(0.2, Math.min(0.95, 1 - peak / 2.2));
+function stateOf(z) {
+  let best = 'Neutral', bestS = -Infinity;
+  for (const t of TEMPLATES) {
+    let dot = 0; for (const b of CLASS_BANDS) dot += z[b]*t.w[b];
+    const s = dot/t.norm;
+    if (s > bestS) { bestS = s; best = t.label; }
   }
-  const strength = Math.min(1, verdict.score / 4.5);
-  const clarity = Math.min(1, 0.45 + verdict.margin / 2.5);
-  return Math.max(0.2, Math.min(0.97, strength * clarity));
+  return bestS >= Z_LEAVE_NEUTRAL ? best : 'Neutral';
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -576,92 +552,75 @@ function analyze() {
   const spec = spectrum(sig);
 
   const q = signalQuality(sig, spec);
-  qualityLeadOff = !q.ok;
-  leadOffReason = q.reason;
+  qualityLeadOff = !q.ok; leadOffReason = q.reason;
   updateLeadOff();
-  if (!q.ok || firmwareLeadOff) return;   // hold the last reading, don't guess
+  if (!q.ok || firmwareLeadOff) return;
 
   const bp = bandPowers(spec);
 
-  // ---- Artifact gate -------------------------------------------------
-  // A blink dumps far more energy into 1-4 Hz than the cortex ever does,
-  // so a delta-dominated window is an eyelid, not a brain state. Throwing
-  // the window away is honest; classifying it is not.
   let lo = sig[0], hi = sig[0];
-  for (let i = 1; i < sig.length; i++) {
-    if (sig[i] < lo) lo = sig[i];
-    if (sig[i] > hi) hi = sig[i];
-  }
-  const p2p = hi - lo;
-  const tooBig = base.ready && p2p > base.p2pMed * P2P_ARTIFACT;
-  const deltaCap = base.ready ? base.deltaMax : DELTA_ARTIFACT;
-  if (bp.delta > deltaCap || tooBig) {
-    artifactCount++;
-    document.getElementById('statDrop').textContent = artifactCount;
+  for (let i = 1; i < sig.length; i++) { if (sig[i]<lo) lo=sig[i]; if (sig[i]>hi) hi=sig[i]; }
+  const p2p = hi-lo;
+  const cap = base.ready ? base.deltaMax : DELTA_ARTIFACT;
+  if (bp.delta > cap || (base.ready && p2p > base.p2pMed*P2P_ARTIFACT)) {
+    artifacts++;
+    document.getElementById('statArt').textContent = artifacts;
     return;
   }
 
-  // EMA smoothing to stop single-frame artifacts flipping the label
-  if (!bpSmooth) bpSmooth = Object.assign({}, bp);
-  else for (const b of BAND_ORDER) bpSmooth[b] = bpSmooth[b] * (1 - SMOOTH) + bp[b] * SMOOTH;
-  const bps = Object.assign({}, bpSmooth);
+  const sub = subShares(spec);
+  if (!subSmooth) subSmooth = sub.slice();
+  else for (let i = 0; i < NSUB; i++) subSmooth[i] = subSmooth[i]*(1-SUB_SMOOTH) + sub[i]*SUB_SMOOTH;
+  lastSub = subSmooth.slice();
+
+  if (!bandSmooth) bandSmooth = Object.assign({}, bp);
+  else for (const b of BAND_ORDER) bandSmooth[b] = bandSmooth[b]*(1-BAND_SMOOTH) + bp[b]*BAND_SMOOTH;
+  const bps = Object.assign({}, bandSmooth);
   const cb = classBands(bps);
 
-  BAND_ORDER.forEach(b => {
-    bandHist[b].push(bps[b]);
-    if (bandHist[b].length > 120) bandHist[b].shift();
-  });
-
-  pktCount++;
-  document.getElementById('statPkt').textContent = pktCount;
+  frames++;
+  document.getElementById('statFrames').textContent = frames;
 
   if (!base.ready) {
     addBaselineFrame(cb, p2p, bp.delta);
-    const left = Math.max(0, BASELINE_FRAMES - base.frames.length) * BASELINE_STRIDE / 4;
-    curEmo = {
-      emoji: '\u{1F9EA}', label: 'Measuring your baseline',
-      color: '#2563eb', conf: 0, bp: bps, z: null,
-      desc: 'Sit still, eyes open, looking at one point. About ' + Math.ceil(left) +
-            ' seconds to go. This records your own resting band powers so later readings can be compared against them.'
-    };
-    needsRedraw = true;
-    updateHUD();
+    const left = Math.max(0, baseFrames-base.frames.length)*baseStride/4/(demoMode?3:1);
+    curEmo = { emoji:'\u{1F9EA}', label:'Getting to know your brain', color:'#4b7ca8',
+               conf:0, bp:bps, z:null, code:null,
+               desc:'Relax, keep your eyes open and look at one spot. About '+Math.ceil(left)+' seconds left.' };
+    needsRedraw = true; updateHUD();
     return;
   }
 
   const z = zscores(cb);
-  lastZ = z;
+  curState = stateOf(z);
+  document.getElementById('statState').textContent = curState;
 
-  const verdict = classify(z);
-  const rule = verdict.rule;
+  const v = kaoClassify(lastSub);
+  lastBits = v.bits;
+  const e = v.emo;
 
-  // Require the same answer twice before switching the displayed label
-  if (rule.label === curEmo.label) {
-    pendingLabel = null; pendingCount = 0;
-  } else if (rule.label === pendingLabel) {
-    pendingCount++;
-  } else {
-    pendingLabel = rule.label; pendingCount = 1;
-  }
+  if (e.name === curEmo.label) { pendingLabel = null; pendingCount = 0; }
+  else if (e.name === pendingLabel) pendingCount++;
+  else { pendingLabel = e.name; pendingCount = 1; }
 
-  const accept = (rule.label === curEmo.label) || pendingCount >= HOLD_FRAMES;
-  if (accept) {
+  if (e.name === curEmo.label || pendingCount >= HOLD_FRAMES) {
+    const conf = Math.max(0.2, Math.min(0.97,
+      (0.5 + 0.5*Math.min(1, (v.score-0.5)/0.45)) * Math.min(1, 0.55 + v.margin*2.5)));
     curEmo = {
-      emoji: rule.emoji, label: rule.label, color: rule.color,
-      desc: rule.desc, conf: confidence(z, verdict), bp: bps, z
+      emoji: e.emoji, label: e.name, color: e.color, conf, bp: bps, z,
+      code: KAO.find(k => k.name === e.name).code,
+      desc: e.plain,
+      tech: (e.valence === 'positive' ? 'Positive' : 'Negative') + ' emotion. ' +
+            (e.measured ? 'Energy table published in Kao et al. Tables 1-4.'
+                        : 'Reconstructed from the paper\u2019s Table 6 code; no energy table published.')
     };
-    if (!emoHist.length || emoHist[0].label !== rule.label) {
-      emoHist.unshift({ emoji: rule.emoji, label: rule.label, color: rule.color, t: Date.now() });
-      if (emoHist.length > 24) emoHist.pop();
-    }
+    if (!emoHist.length || emoHist[0].label !== e.name)
+      emoHist.unshift({ emoji:e.emoji, label:e.name, color:e.color, t:Date.now() });
+    if (emoHist.length > 24) emoHist.pop();
     pendingLabel = null; pendingCount = 0;
   } else {
     curEmo.bp = bps; curEmo.z = z;
   }
-
-  const shift = CLASS_BANDS.reduce((a,b) => Math.abs(z[b]) > Math.abs(z[a]) ? b : a);
-  document.getElementById('statDom').textContent =
-    shift + ' ' + (z[shift] >= 0 ? '+' : '') + z[shift].toFixed(1);
 
   needsRedraw = true;
   updateHUD();
@@ -670,11 +629,18 @@ function analyze() {
 // ════════════════════════════════════════════════════════════════
 // UI
 // ════════════════════════════════════════════════════════════════
+const PLAIN_FAULT = {
+  'No signal': 'No signal reaching the board',
+  'Electrode railed': 'An electrode has come loose',
+  'Contact drifting': 'Contact is slipping \u2014 press the electrodes down',
+};
 function updateLeadOff() {
   const off = firmwareLeadOff || qualityLeadOff;
-  document.getElementById('leadOff').className = 'lead-off' + (off ? ' on' : '');
-  document.getElementById('leadOffTxt').textContent =
-    firmwareLeadOff ? 'Electrode off skin' : (leadOffReason || 'Lead off');
+  const q = document.getElementById('quality');
+  q.className = 'quality ' + (off ? 'bad' : (running ? 'good' : ''));
+  document.getElementById('qualityTxt').textContent = !running ? 'Not connected'
+    : off ? (firmwareLeadOff ? 'An electrode has come loose' : (PLAIN_FAULT[leadOffReason] || leadOffReason))
+    : 'Signal looks good';
 }
 
 function updateHUD() {
@@ -683,224 +649,210 @@ function updateHUD() {
   document.getElementById('emoLabel').textContent = e.label;
   document.getElementById('emoLabel').style.color = e.color;
   document.getElementById('emoDesc').textContent = e.desc;
+  document.getElementById('stateLine').textContent = e.code ? 'Mental state: ' + curState : '';
+  document.getElementById('techLine').textContent = e.tech || '';
 
-  const pct = Math.round((e.conf || 0) * 100);
+  const cl = document.getElementById('codeLine');
+  if (e.code && lastBits) {
+    const mine = lastBits.map(v => v >= 0.5 ? '1' : '0').join('');
+    const grp = str => str.slice(0,4)+' '+str.slice(4,8)+' '+str.slice(8,13)+' '+str.slice(13);
+    cl.innerHTML = 'yours &nbsp;<b>' + grp(mine) + '</b><br>' + e.label.toLowerCase() + '&nbsp; ' + grp(e.code);
+  } else cl.innerHTML = '';
+
+  const pct = Math.round((e.conf||0)*100);
   document.getElementById('confFill').style.width = pct + '%';
   document.getElementById('confFill').style.background = e.color;
   document.getElementById('confVal').textContent = pct ? pct : '\u2014';
 
+  let zHtml = '';
   BAND_ORDER.forEach(b => {
-    const v = e.bp ? Math.round(e.bp[b] * 100) : 0;
-    document.getElementById('bf-' + b).style.width = (e.bp ? v : 0) + '%';
-    document.getElementById('bv-' + b).textContent = e.bp ? v + '%' : '\u2014';
-    const zEl = document.getElementById('bz-' + b);
+    const v = e.bp ? Math.round(e.bp[b]*100) : 0;
+    document.getElementById('bf-'+b).style.width = (e.bp ? v : 0) + '%';
+    document.getElementById('bv-'+b).textContent = e.bp ? v+'%' : '\u2014';
     const zv = e.z ? e.z[b] : undefined;
-    if (zv === undefined) {
-      zEl.textContent = b === 'delta' ? 'n/a' : '\u2014';
-      zEl.style.color = 'var(--text3)';
-    } else {
-      zEl.textContent = (zv >= 0 ? '+' : '') + zv.toFixed(1) + ' SD';
-      zEl.style.color = Math.abs(zv) >= Z_MAIN ? BANDS[b][2] : 'var(--text3)';
-    }
+    const txt = zv === undefined ? (b==='delta' ? 'not used \u2014 eye artifact' : '\u2014')
+                                 : (zv>=0?'+':'')+zv.toFixed(1)+' SD from your resting level';
+    zHtml += '<div class="zrow"><span style="color:'+BANDS[b][2]+'">'+b+'</span><span>'+txt+'</span></div>';
   });
+  document.getElementById('zList').innerHTML = zHtml;
 
   const tl = document.getElementById('timeline');
   tl.innerHTML = '';
   if (!emoHist.length) {
     const p = document.createElement('div');
-    p.className = 'emo-pill';
-    p.style.color = 'var(--text3)';
-    p.textContent = 'Nothing recorded yet';
-    tl.appendChild(p);
-    return;
+    p.className = 'emo-pill'; p.style.color = 'var(--text3)';
+    p.textContent = 'Nothing recorded yet'; tl.appendChild(p); return;
   }
-  emoHist.forEach((h, i) => {
+  emoHist.forEach((h,i) => {
     const p = document.createElement('div');
-    p.className = 'emo-pill' + (i === 0 ? ' latest' : '');
-    if (i === 0) p.style.borderColor = h.color;
-    const end = i === 0 ? Date.now() : emoHist[i-1].t;
-    const secs = Math.max(1, Math.round((end - h.t) / 1000));
-    p.innerHTML = h.emoji + ' ' + h.label + ' <small>' + secs + 's</small>';
+    p.className = 'emo-pill' + (i===0 ? ' latest' : '');
+    if (i===0) p.style.borderColor = h.color;
+    const end = i===0 ? Date.now() : emoHist[i-1].t;
+    p.innerHTML = h.emoji+' '+h.label+' <small>'+Math.max(1,Math.round((end-h.t)/1000))+'s</small>';
     tl.appendChild(p);
   });
 }
 
-function isDark() { return window.matchMedia('(prefers-color-scheme:dark)').matches; }
-function textColor() { return isDark() ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.35)'; }
-function gridColor() { return isDark() ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'; }
+function isDark(){ return window.matchMedia('(prefers-color-scheme:dark)').matches; }
+function txtCol(){ return isDark() ? 'rgba(246,236,214,0.55)' : 'rgba(38,51,63,0.55)'; }
+function grdCol(){ return isDark() ? 'rgba(232,196,118,0.14)' : 'rgba(56,101,145,0.14)'; }
+
+function drawSub() {
+  const c = document.getElementById('subCanvas');
+  const W = Math.max(160, c.offsetWidth||520); c.width = W; c.height = 190;
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0,0,W,190);
+  const L = 30, R = 8, T = 10, B = 30, H = 190-T-B;
+  const mean = 1/NSUB, thr = KAO_RATIO*mean;
+  const maxV = Math.max(0.13, lastSub ? Math.max(...lastSub)*1.15 : 0.13);
+  const bw = (W-L-R)/NSUB;
+
+  // y grid in percent
+  ctx.font = '9px sans-serif'; ctx.textAlign = 'right';
+  for (let pc = 0; pc <= maxV*100; pc += 4) {
+    const y = T+H - (pc/100)/maxV*H;
+    ctx.strokeStyle = grdCol(); ctx.lineWidth = 0.5;
+    ctx.beginPath(); ctx.moveTo(L,y); ctx.lineTo(W-R,y); ctx.stroke();
+    ctx.fillStyle = txtCol(); ctx.fillText(pc+'%', L-4, y+3);
+  }
+
+  if (lastSub) {
+    for (let i = 0; i < NSUB; i++) {
+      const v = lastSub[i], x = L+i*bw, h = Math.min(1, v/maxV)*H;
+      const grp = SUBBANDS[i][0][0];
+      ctx.fillStyle = grp==='d' ? '#2f5d8a' : grp==='t' ? '#4e93b8' : grp==='a' ? '#4e9a94' : '#e0a93e';
+      ctx.globalAlpha = VARY.includes(i) ? 1 : 0.45;
+      ctx.fillRect(x+1, T+H-h, bw-2, h);
+      ctx.globalAlpha = 1;
+      if (VARY.includes(i)) {
+        ctx.strokeStyle = '#cc7a3c'; ctx.lineWidth = 1.4;
+        ctx.strokeRect(x+0.5, T+H-h-3, bw-1, h+3);
+      }
+    }
+  }
+
+  // 4% encoding threshold
+  const ty = T+H - thr/maxV*H;
+  ctx.strokeStyle = '#cc7a3c'; ctx.lineWidth = 1.2; ctx.setLineDash([5,4]);
+  ctx.beginPath(); ctx.moveTo(L,ty); ctx.lineTo(W-R,ty); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#cc7a3c'; ctx.textAlign = 'left'; ctx.font = '9px sans-serif';
+  ctx.fillText('4% threshold', L+3, ty-4);
+
+  // x labels
+  ctx.fillStyle = txtCol(); ctx.textAlign = 'center'; ctx.font = '8px sans-serif';
+  for (let i = 0; i < NSUB; i++)
+    if (i%2===0 || VARY.includes(i))
+      ctx.fillText(SUBBANDS[i][0], L+i*bw+bw/2, T+H+11);
+  ctx.font = '9px sans-serif';
+  ctx.fillText('delta', L+2*bw, T+H+24);
+  ctx.fillText('theta', L+6*bw, T+H+24);
+  ctx.fillText('alpha', L+10.5*bw, T+H+24);
+  ctx.fillText('beta', L+17.5*bw, T+H+24);
+}
 
 function drawWave() {
   const c = document.getElementById('waveCanvas');
-  const W = Math.max(120, c.parentElement.offsetWidth || 600);
-  c.width = W; c.height = 90;
+  const W = Math.max(120, c.parentElement.offsetWidth||600); c.width = W; c.height = 90;
   const ctx = c.getContext('2d');
-  ctx.clearRect(0, 0, W, 90);
+  ctx.clearRect(0,0,W,90);
   if (ring.length < 4) {
-    ctx.fillStyle = textColor(); ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText('No signal. Connect the board or run Demo.', W / 2, 50);
-    document.getElementById('mvRange').textContent = '\u2014';
-    return;
+    ctx.fillStyle = txtCol(); ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('No signal. Connect the board or run Demo.', W/2, 50);
+    document.getElementById('mvRange').textContent = '\u2014'; return;
   }
   const sig = ring.slice(-W);
-  let mx = 30;
-  for (const v of sig) mx = Math.max(mx, Math.abs(v));
-  document.getElementById('mvRange').textContent =
-    '\u00B1' + mx.toFixed(0) + ' mV at amplifier output';
-  ctx.strokeStyle = gridColor(); ctx.lineWidth = 0.5;
-  ctx.beginPath(); ctx.moveTo(0, 45); ctx.lineTo(W, 45); ctx.stroke();
-  ctx.strokeStyle = curEmo.color || '#22c55e'; ctx.lineWidth = 1.3;
-  ctx.beginPath();
+  let mx = 30; for (const v of sig) mx = Math.max(mx, Math.abs(v));
+  document.getElementById('mvRange').textContent = '\u00B1'+mx.toFixed(0)+' mV at amplifier output';
+  ctx.strokeStyle = grdCol(); ctx.lineWidth = 0.5;
+  ctx.beginPath(); ctx.moveTo(0,45); ctx.lineTo(W,45); ctx.stroke();
+  ctx.strokeStyle = curEmo.color||'#5a9c86'; ctx.lineWidth = 1.3; ctx.beginPath();
   for (let i = 0; i < sig.length; i++) {
-    const x = i / sig.length * W, y = 45 - sig[i] / mx * 40;
-    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    const x = i/sig.length*W, y = 45 - sig[i]/mx*40;
+    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
   }
   ctx.stroke();
 }
 
-function drawRadar() {
-  const c = document.getElementById('radarCanvas');
-  const W = Math.max(120, c.offsetWidth || 280);
-  c.width = W; c.height = 180;
-  const ctx = c.getContext('2d');
-  const cx = W / 2, cy = 90, R = Math.min(W / 2, 88) * 0.78;
-  ctx.clearRect(0, 0, W, 180);
-  const n = 5;
-  for (let r = 1; r <= 4; r++) {
-    ctx.beginPath();
-    for (let i = 0; i < n; i++) {
-      const a = -Math.PI / 2 + (i / n) * 2 * Math.PI, rr = R * r / 4;
-      ctx.lineTo(cx + rr * Math.cos(a), cy + rr * Math.sin(a));
-    }
-    ctx.closePath(); ctx.strokeStyle = gridColor(); ctx.lineWidth = 0.5; ctx.stroke();
-  }
-  ctx.font = '10px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = textColor();
-  for (let i = 0; i < n; i++) {
-    const a = -Math.PI / 2 + (i / n) * 2 * Math.PI;
-    ctx.strokeStyle = gridColor(); ctx.lineWidth = 0.5;
-    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + R * Math.cos(a), cy + R * Math.sin(a)); ctx.stroke();
-    ctx.fillText(BAND_ORDER[i], cx + (R + 16) * Math.cos(a), cy + (R + 16) * Math.sin(a) + 4);
-  }
-  if (!curEmo.bp) return;
-  ctx.beginPath();
-  BAND_ORDER.forEach((b, i) => {
-    const a = -Math.PI / 2 + (i / n) * 2 * Math.PI;
-    const rr = R * Math.min(1, curEmo.bp[b] / 0.5);   // 50% of total = full radius
-    i === 0 ? ctx.moveTo(cx + rr * Math.cos(a), cy + rr * Math.sin(a))
-            : ctx.lineTo(cx + rr * Math.cos(a), cy + rr * Math.sin(a));
-  });
-  ctx.closePath();
-  ctx.fillStyle = (curEmo.color || '#22c55e') + '2a'; ctx.fill();
-  ctx.strokeStyle = curEmo.color || '#22c55e'; ctx.lineWidth = 1.5; ctx.stroke();
-}
-
-function drawHist() {
-  const c = document.getElementById('histCanvas');
-  const W = Math.max(120, c.offsetWidth || 600);
-  c.width = W; c.height = 100;
-  const ctx = c.getContext('2d');
-  ctx.clearRect(0, 0, W, 100);
-  const maxLen = Math.max(120, 1);
-  BAND_ORDER.forEach(b => {
-    const h = bandHist[b];
-    if (h.length < 2) return;
-    ctx.strokeStyle = BANDS[b][2]; ctx.lineWidth = 1.3; ctx.beginPath();
-    h.forEach((v, i) => {
-      const x = i / maxLen * W, y = 100 - Math.min(1, v / 0.6) * 92;
-      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-    });
-    ctx.stroke();
-  });
-  ctx.font = '10px sans-serif'; ctx.textAlign = 'left';
-  BAND_ORDER.forEach((b, i) => {
-    ctx.fillStyle = BANDS[b][2]; ctx.fillRect(8 + i * 62, 8, 10, 3);
-    ctx.fillStyle = textColor(); ctx.fillText(b, 22 + i * 62, 14);
-  });
-}
-
-// FIX 5b: the waveform wants a steady refresh, the analysis panels
-// only change 4x a second. Don't redraw them at 60 fps.
-let frameTick = 0;
+let tick = 0;
 function renderLoop() {
-  frameTick++;
-  if (frameTick % 2 === 0) drawWave();
-  if (needsRedraw) { drawRadar(); drawHist(); needsRedraw = false; }
+  tick++;
+  if (tick%2===0) drawWave();
+  if (needsRedraw) { drawSub(); needsRedraw = false; }
   animId = requestAnimationFrame(renderLoop);
 }
 
 function push(arr) {
   for (let i = 0; i < arr.length; i++) ring.push(arr[i]);
-  if (ring.length > WIN * 2) ring = ring.slice(-WIN * 2);
-  stepAcc += arr.length;
-  srCount += arr.length;
+  if (ring.length > WIN*1.5) ring = ring.slice(-Math.floor(WIN*1.5));
+  stepAcc += arr.length; srCount += arr.length;
   const now = Date.now();
-  if (now - srTimer >= 1000) {
-    document.getElementById('statSR').textContent = srCount;
+  if (now-srTimer >= 1000) {
+    document.getElementById('statSR').textContent = running ? srCount+' samples/s' : '';
     srCount = 0; srTimer = now;
   }
   while (stepAcc >= STEP) { stepAcc -= STEP; analyze(); }
 }
 
 // ════════════════════════════════════════════════════════════════
-// Demo signal                                                FIX 6
+// Demo - replays the published sub-band spectra
 //
-// Phases are written as TARGET BAND POWERS. For a set of k tones in
-// a band, FFT band power is proportional to the sum of A^2/2, so an
-// amplitude of sqrt(2 * target / k) per tone reproduces the target
-// exactly. What is written below is what the dashboard reads back.
+// Tables 1-4 of Kao et al. give measured energy percentages for Joyful,
+// Angry, Surprised and Fear. The other four emotions have only their
+// Table 6 codes published, so those profiles are reconstructed: values
+// chosen to reproduce the published code exactly, marked as such in the
+// readout rather than passed off as measurements.
 //
-// Phase 0 is a resting profile - delta/theta heavy, which is what
-// frontal EEG actually looks like at rest. The baseline is measured
-// from it, and every later phase is scored as a deviation from it.
+// The demo runs at 3x real time. The full pipeline is unchanged - it is
+// simply fed samples three times as fast, so a 30 s baseline completes in
+// 10 s of wall clock instead of leaving the screen apparently frozen for
+// over half a minute, which is what made it look broken.
 // ════════════════════════════════════════════════════════════════
-const DEMO_PHASES = [
-  { name:'Resting',  secs:40, w:{delta:.30, theta:.22, alpha:.20, beta:.20, gamma:.08} },
-  { name:'Relaxed',  secs:12, w:{delta:.22, theta:.18, alpha:.38, beta:.16, gamma:.06} },
-  { name:'Focused',  secs:12, w:{delta:.18, theta:.14, alpha:.18, beta:.43, gamma:.07} },
-  { name:'Stressed', secs:12, w:{delta:.16, theta:.12, alpha:.10, beta:.40, gamma:.22} },
-  { name:'Excited',  secs:12, w:{delta:.18, theta:.14, alpha:.24, beta:.18, gamma:.26} },
-  { name:'Dreamy',   secs:12, w:{delta:.22, theta:.38, alpha:.26, beta:.10, gamma:.04} },
-  { name:'Drowsy',   secs:12, w:{delta:.45, theta:.32, alpha:.12, beta:.08, gamma:.03} },
+const DEMO_PROFILES = [
+  { name:'Resting',     secs:30, measured:false, e:null },
+  { name:'Joyful',      secs:26, e:[3.63,3.52,3.62,4.44, 4.92,4.50,3.56,3.76, 3.76,9.38,11.39,3.62,3.31, 3.71,3.24,3.78,3.51,3.25,3.75,5.75,6.01,3.60] },
+  { name:'Angry',       secs:26, e:[3.53,3.86,3.99,4.67, 5.11,4.53,3.70,3.34, 3.55,9.27,11.63,4.13,3.27, 3.30,3.58,3.25,3.17,3.28,3.68,5.43,6.10,3.63] },
+  { name:'Surprised',   secs:26, e:[4.24,3.75,3.81,4.72, 4.66,4.05,3.08,3.39, 3.66,10.21,9.68,3.78,3.55, 3.17,3.14,3.38,3.18,3.33,3.61,6.68,7.20,3.73] },
+  { name:'Fear',        secs:26, e:[4.45,3.75,3.95,4.07, 4.89,4.21,3.38,3.60, 3.61,10.89,9.80,3.59,3.42, 3.43,3.29,3.32,3.15,3.22,3.59,5.68,6.84,3.86] },
+  { name:'Protected',   secs:26, e:[4.40,3.60,3.70,4.60, 4.90,3.80,3.50,3.60, 4.30,9.50,10.50,3.60,3.30, 3.40,3.40,3.40,3.40,3.40,3.40,5.70,6.20,3.60] },
+  { name:'Sad',         secs:26, e:[3.60,3.50,3.70,4.50, 5.00,3.90,3.50,3.50, 4.20,9.40,10.80,4.20,3.30, 3.30,3.30,3.30,3.30,3.30,3.30,5.50,6.00,4.20] },
+  { name:'Satisfied',   secs:26, e:[4.30,3.60,3.70,3.80, 4.90,4.50,3.50,3.60, 3.70,9.40,11.00,4.20,3.30, 3.40,3.40,3.40,3.40,3.40,3.40,5.70,6.00,3.60] },
+  { name:'Unconcerned', secs:26, e:[4.30,3.60,3.70,4.50, 4.90,3.80,3.50,3.60, 3.70,9.50,10.50,3.60,3.30, 3.40,3.40,3.40,3.40,3.40,3.40,5.70,6.20,3.60] },
 ];
-
-const DEMO_AMP = 300;                        // mV-scale at amplifier output
-const DEMO_TONES = {};                       // 3 tones per band, off-bin
-const DEMO_PHASE_OFF = {};
-BAND_ORDER.forEach((b, bi) => {
-  const lo = BANDS[b][0], hi = BANDS[b][1];
-  DEMO_TONES[b] = [0.25, 0.5, 0.75].map((f, i) => lo + (hi - lo) * f + 0.13 * (i + 1));
-  DEMO_PHASE_OFF[b] = 0.7 * bi + 0.31;
+// Resting = mean of the eight, so each emotion reads as a deviation from it
+DEMO_PROFILES[0].e = (() => {
+  const m = new Array(NSUB).fill(0);
+  for (let k = 1; k < DEMO_PROFILES.length; k++)
+    for (let i = 0; i < NSUB; i++) m[i] += DEMO_PROFILES[k].e[i]/(DEMO_PROFILES.length-1);
+  return m;
+})();
+DEMO_PROFILES.forEach(p => {
+  let s = 0; for (const v of p.e) s += v;
+  p.n = p.e.map(v => v/s);
+  p.f = SUBBANDS.map(sb => (sb[1]+sb[2])/2);
 });
-// Slow, incommensurate modulation so the baseline has realistic
-// variance instead of a zero standard deviation.
-const JITTER_HZ = { delta:0.031, theta:0.047, alpha:0.067, beta:0.089, gamma:0.107 };
+const DEMO_AMP = 300;
+const DEMO_PH = SUBBANDS.map((_,i) => (i*2.399) % (2*Math.PI));
+const DEMO_TOTAL = DEMO_PROFILES.reduce((a,p) => a+p.secs, 0);
 
-function demoWeights() {
+function demoProfile() {
   let acc = 0;
-  for (const ph of DEMO_PHASES) {
-    acc += ph.secs;
-    if (demoPhaseSamp < acc * FS) return ph.w;
-  }
-  return DEMO_PHASES[DEMO_PHASES.length - 1].w;
+  for (const p of DEMO_PROFILES) { acc += p.secs; if (demoSamp < acc*FS) return p; }
+  return DEMO_PROFILES[DEMO_PROFILES.length-1];
 }
 
 function genBatch(n) {
-  const w = demoWeights();
-  const out = new Array(n);
+  const p = demoProfile(), out = new Array(n);
   for (let i = 0; i < n; i++) {
     let s = 0;
-    for (const b of BAND_ORDER) {
-      const jit = 1 + 0.20 * Math.sin(2 * Math.PI * JITTER_HZ[b] * demoT + DEMO_PHASE_OFF[b]);
-      const A = DEMO_AMP * Math.sqrt(2 * Math.max(0, w[b]) * jit / DEMO_TONES[b].length);
-      for (let t = 0; t < DEMO_TONES[b].length; t++) {
-        s += A * Math.sin(2 * Math.PI * DEMO_TONES[b][t] * demoT + DEMO_PHASE_OFF[b] + t);
-      }
+    for (let k = 0; k < NSUB; k++) {
+      const jit = 1 + 0.03*Math.sin(2*Math.PI*(0.021+0.007*k)*demoT + DEMO_PH[k]);
+      s += DEMO_AMP*Math.sqrt(2*p.n[k]*jit)*Math.sin(2*Math.PI*p.f[k]*demoT + DEMO_PH[k]);
     }
-    s += (Math.random() - 0.5) * 5;
-    out[i] = s;
-    demoT += 1 / FS;
-    demoPhaseSamp++;
-    const totalSecs = DEMO_PHASES.reduce((a, p) => a + p.secs, 0);
-    if (demoPhaseSamp >= totalSecs * FS) demoPhaseSamp = DEMO_PHASES[0].secs * FS;
+    out[i] = s + (Math.random()-0.5)*4;
+    demoT += 1/FS;
+    demoSamp++;
+    if (demoSamp >= DEMO_TOTAL*FS) demoSamp = DEMO_PROFILES[0].secs*FS;
   }
   return out;
 }
@@ -908,14 +860,15 @@ function genBatch(n) {
 async function startDemo() {
   await stopAll();
   demoMode = true; running = true;
-  document.getElementById('demoBadge').style.display = '';
-  document.getElementById('calBadge').style.display = '';
-  document.getElementById('calBar').style.display = '';
-  document.getElementById('statusDot').className = 'dot live';
-  document.getElementById('statusTxt').textContent = 'Demo';
-  document.getElementById('connectBtn').className = 'btn connected';
-  document.getElementById('connectBtn').innerHTML = '<i class="ti ti-x" aria-hidden="true"></i> Stop';
-  demoInterval = setInterval(() => { if (running) push(genBatch(32)); }, 125);
+  baseStride = 8; baseFrames = 15;          // 30 s of signal, 10 s of wall clock at 3x
+  document.getElementById('calBar').style.display = 'block';
+  document.getElementById('statMode').textContent = 'Demo 3x';
+  document.getElementById('brandSub').textContent = 'Replaying the measured data from Kao et al. (2015)';
+  document.getElementById('connectBtn').className = 'btn';
+  document.getElementById('connectBtn').textContent = 'Stop';
+  document.getElementById('demoBtn').disabled = true;
+  // 96 samples per 125 ms = 768 samples/s = 3x the 256 Hz capture rate
+  demoInterval = setInterval(() => { if (running) push(genBatch(96)); }, 125);
   renderLoop();
 }
 
@@ -923,162 +876,113 @@ async function startDemo() {
 // Serial
 // ════════════════════════════════════════════════════════════════
 async function handleConnect() {
-  // FIX: v3 tested (running && !demoMode), so the Stop button in
-  // demo mode fell through and popped the serial port picker.
   if (running) { await stopAll(); return; }
-  if (!('serial' in navigator)) {
-    document.getElementById('noSerial').className = 'no-serial on';
-    return;
-  }
+  if (!('serial' in navigator)) { document.getElementById('noSerial').className = 'no-serial on'; return; }
   try {
     port = await navigator.serial.requestPort({});
     await port.open({ baudRate: 115200 });
     running = true; demoMode = false;
-    document.getElementById('statusDot').className = 'dot live';
-    document.getElementById('statusTxt').textContent = 'Live';
-    document.getElementById('connectBtn').className = 'btn connected';
-    document.getElementById('connectBtn').innerHTML = '<i class="ti ti-x" aria-hidden="true"></i> Disconnect';
-    document.getElementById('demoBadge').style.display = 'none';
-    document.getElementById('calBadge').style.display = '';
-    document.getElementById('calBar').style.display = '';
-    renderLoop();
-    readSerial();
+    baseStride = 8; baseFrames = 15;
+    document.getElementById('statMode').textContent = 'Live';
+    document.getElementById('brandSub').textContent = 'Reading your headband';
+    document.getElementById('connectBtn').className = 'btn';
+    document.getElementById('connectBtn').textContent = 'Disconnect';
+    document.getElementById('demoBtn').disabled = true;
+    document.getElementById('calBar').style.display = 'block';
+    renderLoop(); readSerial();
   } catch (err) {
-    if (err.name === 'NotFoundError') return;    // user closed the picker
-    document.getElementById('statusDot').className = 'dot err';
-    document.getElementById('statusTxt').textContent = 'Error';
+    if (err.name === 'NotFoundError') return;
     document.getElementById('emoLabel').textContent = "Couldn't open the port";
-    document.getElementById('emoDesc').textContent =
-      err.message + ' \u2014 close the Arduino Serial Monitor if it is open, then try again.';
+    document.getElementById('emoDesc').textContent = err.message +
+      ' \u2014 close the Arduino Serial Monitor if it is open, then try again.';
   }
-}
-
-function applyInit(pkt) {
-  if (pkt.fs && pkt.fs !== FS) {
-    FS = pkt.fs;
-    WIN = FS * WIN_SEC;
-    STEP = Math.round(FS / 4);
-  }
-  if (pkt.scale) SCALE = pkt.scale;
-  if (pkt.pkt_size) EXPECT_PKT = pkt.pkt_size;
 }
 
 async function readSerial() {
-  const dec = new TextDecoder();
-  let buf = '';
+  const dec = new TextDecoder(); let buf = '';
   try {
     reader = port.readable.getReader();
     while (running) {
       const { value, done } = await reader.read();
       if (done) break;
-      buf += dec.decode(value, { stream: true });     // FIX: stream mode
-      if (buf.length > 20000) buf = buf.slice(-4000); // runaway guard
-      const lines = buf.split('\n');
-      buf = lines.pop();
+      buf += dec.decode(value, { stream:true });
+      if (buf.length > 20000) buf = buf.slice(-4000);
+      const lines = buf.split('\n'); buf = lines.pop();
       for (const ln of lines) {
         const t = ln.trim();
         if (!t || t[0] !== '{') continue;
-        let pkt;
-        try { pkt = JSON.parse(t); } catch (e) { continue; }
-
+        let pkt; try { pkt = JSON.parse(t); } catch (e) { continue; }
         if (pkt.type === 'init') {
-          applyInit(pkt);
-        } else if (pkt.type === 'baseline') {
-          // DC offset only. The band-power baseline is measured here.
+          if (pkt.fs && pkt.fs !== FS) { FS = pkt.fs; WIN = FS*WIN_SEC; STEP = Math.round(FS/4); }
+          if (pkt.scale) SCALE = pkt.scale;
+          if (pkt.pkt_size) EXPECT_PKT = pkt.pkt_size;
         } else if (pkt.type === 'eeg') {
           if (!Array.isArray(pkt.d) || pkt.d.length !== EXPECT_PKT) continue;
-
-          // FIX: a dropped packet used to be spliced into the ring as
-          // if it were continuous, which corrupts the FFT. Resync.
-          if (lastPktNum !== null && pkt.pkt !== lastPktNum + 1) {
-            dropCount += Math.max(1, pkt.pkt - lastPktNum - 1);
-            ring = []; stepAcc = 0;
-          }
+          if (lastPktNum !== null && pkt.pkt !== lastPktNum+1) { ring = []; stepAcc = 0; }
           lastPktNum = pkt.pkt;
-
-          firmwareLeadOff = !!pkt.lo;
-          updateLeadOff();
+          firmwareLeadOff = !!pkt.lo; updateLeadOff();
           const s = new Array(pkt.d.length);
-          for (let i = 0; i < pkt.d.length; i++) s[i] = pkt.d[i] / SCALE;
+          for (let i = 0; i < pkt.d.length; i++) s[i] = pkt.d[i]/SCALE;
           push(s);
         }
       }
     }
   } catch (err) {
     if (running) {
-      document.getElementById('statusDot').className = 'dot err';
-      document.getElementById('statusTxt').textContent = 'Signal lost';
       document.getElementById('emoLabel').textContent = 'Lost the connection';
-      document.getElementById('emoDesc').textContent =
-        'The board stopped sending. Check the USB cable, then connect again.';
+      document.getElementById('emoDesc').textContent = 'The board stopped sending. Check the USB cable, then connect again.';
       running = false;
     }
   }
 }
 
 function recalibrate() {
-  base = { frames: [], p2p: [], p2pMed: 1, mean: null, sd: null, ready: false };
-  bpSmooth = null; lastZ = null; baseTick = 0; artifactCount = 0;
-  pendingLabel = null; pendingCount = 0;
-  emoHist = [];
-  document.getElementById('statDrop').textContent = '0';
-  document.getElementById('calBadge').style.display = '';
-  document.getElementById('calBar').style.display = '';
+  base = { frames:[], p2p:[], delta:[], p2pMed:1, deltaMax:DELTA_ARTIFACT, mean:null, sd:null, ready:false };
+  subSmooth = null; bandSmooth = null; baseTick = 0; artifacts = 0;
+  pendingLabel = null; pendingCount = 0; emoHist = [];
+  document.getElementById('calBar').style.display = 'block';
   document.getElementById('calFill').style.width = '0%';
+  document.getElementById('statArt').textContent = '0';
   document.getElementById('recalBtn').disabled = true;
 }
 
-// FIX: v3 never awaited reader.cancel() before port.close(), so the
-// close threw into an empty catch and the port stayed locked - you
-// could not reconnect without reloading the page.
 async function stopAll() {
   running = false; demoMode = false;
   if (demoInterval) { clearInterval(demoInterval); demoInterval = null; }
   if (animId) { cancelAnimationFrame(animId); animId = null; }
-  if (reader) {
-    try { await reader.cancel(); } catch (e) {}
-    try { reader.releaseLock(); } catch (e) {}
-    reader = null;
-  }
-  if (port) {
-    try { await port.close(); } catch (e) {}
-    port = null;
-  }
+  if (reader) { try { await reader.cancel(); } catch(e){} try { reader.releaseLock(); } catch(e){} reader = null; }
+  if (port) { try { await port.close(); } catch(e){} port = null; }
 
-  ring = []; stepAcc = 0; demoT = 0; demoPhase = 0; demoPhaseSamp = 0;
-  pktCount = 0; dropCount = 0; artifactCount = 0; baseTick = 0; srCount = 0; lastPktNum = null;
-  bpSmooth = null; lastZ = null; pendingLabel = null; pendingCount = 0;
+  ring = []; stepAcc = 0; demoT = 0; demoSamp = 0;
+  frames = 0; artifacts = 0; srCount = 0; lastPktNum = null; baseTick = 0;
+  subSmooth = null; bandSmooth = null; lastSub = null; lastBits = null;
+  pendingLabel = null; pendingCount = 0; emoHist = []; curState = '\u2014';
   firmwareLeadOff = false; qualityLeadOff = false; leadOffReason = '';
-  base = { frames: [], p2p: [], p2pMed: 1, mean: null, sd: null, ready: false };
-  BAND_ORDER.forEach(b => bandHist[b] = []);
-  emoHist = [];
-  curEmo = {
-    emoji: '\u{1F9E0}', label: 'Connect to begin', color: '#888',
-    desc: 'Plug in the Maker UNO X and choose Connect, or run Demo to see how each state looks.',
-    conf: 0, bp: null, z: null
-  };
+  base = { frames:[], p2p:[], delta:[], p2pMed:1, deltaMax:DELTA_ARTIFACT, mean:null, sd:null, ready:false };
+  curEmo = { emoji:'\u{1F9E0}', label:'Ready when you are', color:'#8e8878', conf:0, bp:null, z:null, code:null,
+             desc:'Press Connect to use your headband, or Try demo to watch it work.' };
 
-  document.getElementById('statusDot').className = 'dot';
-  document.getElementById('statusTxt').textContent = 'Disconnected';
-  document.getElementById('connectBtn').className = 'btn';
-  document.getElementById('connectBtn').innerHTML = '<i class="ti ti-usb" aria-hidden="true"></i> Connect Maker UNO X';
-  document.getElementById('statPkt').textContent = '0';
-  document.getElementById('statDrop').textContent = '0';
-  document.getElementById('statSR').textContent = '\u2014';
-  document.getElementById('statDom').textContent = '\u2014';
-  document.getElementById('demoBadge').style.display = 'none';
-  document.getElementById('calBadge').style.display = 'none';
+  document.getElementById('connectBtn').className = 'btn primary';
+  document.getElementById('connectBtn').textContent = 'Connect';
+  document.getElementById('demoBtn').disabled = false;
+  document.getElementById('brandSub').textContent = 'Reads emotion from your brainwaves';
+  document.getElementById('statFrames').textContent = '0';
+  document.getElementById('statArt').textContent = '0';
+  document.getElementById('statSR').textContent = '';
+  document.getElementById('statState').textContent = '\u2014';
+  document.getElementById('statMode').textContent = '\u2014';
   document.getElementById('calBar').style.display = 'none';
   document.getElementById('calFill').style.width = '0%';
   document.getElementById('recalBtn').disabled = true;
-  updateLeadOff();
-  updateHUD(); drawWave(); drawRadar(); drawHist();
+  updateLeadOff(); updateHUD(); drawWave(); drawSub();
 }
 
 if (!('serial' in navigator)) document.getElementById('noSerial').className = 'no-serial on';
-window.addEventListener('load', () => { updateHUD(); drawWave(); drawRadar(); drawHist(); });
-window.addEventListener('resize', () => { needsRedraw = true; if (!running) { drawWave(); drawRadar(); drawHist(); } });
-window.addEventListener('beforeunload', () => { if (port) { try { port.close(); } catch (e) {} } });
+function panelOpened() { needsRedraw = true; setTimeout(() => { drawSub(); drawWave(); }, 30); }
+window.addEventListener('load', () => { updateLeadOff(); updateHUD(); drawWave(); drawSub(); });
+window.addEventListener('resize', () => { needsRedraw = true; if (!running) { drawWave(); drawSub(); } });
+window.addEventListener('beforeunload', () => { if (port) { try { port.close(); } catch(e){} } });
+
 </script>
 </body>
 </html>
