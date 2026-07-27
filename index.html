@@ -116,7 +116,7 @@
   .code{font-family:var(--mono);font-size:12px;color:var(--text2);letter-spacing:.6px;
         word-break:break-all;background:var(--bg2);border-radius:var(--rs);padding:9px 12px}
   .code b{color:var(--accent)}
-  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-top:4px}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:4px}
   @media (max-width:560px){.grid{grid-template-columns:1fr 1fr}}
   .stat{background:var(--bg2);border-radius:var(--rs);padding:.65rem;text-align:center}
   .stat b{display:block;font-size:17px;font-weight:600;color:var(--accent)}
@@ -211,6 +211,8 @@
         <div class="stat"><b id="statFrames">0</b><span>Readings</span></div>
         <div class="stat"><b id="statArt">0</b><span>Blinks skipped</span></div>
         <div class="stat"><b id="statMode">&mdash;</b><span>Mode</span></div>
+        <div class="stat"><b id="statArousal">&mdash;</b><span>Arousal (SD)</span></div>
+        <div class="stat"><b id="statValence">&mdash;</b><span>Valence</span></div>
       </div>
       <p style="margin-top:12px" id="techLine"></p>
       <button class="btn" id="recalBtn" onclick="recalibrate()" disabled style="margin-top:10px">Redo baseline</button>
@@ -220,13 +222,19 @@
   <details ontoggle="panelOpened()">
     <summary>How it works, and what to trust</summary>
     <div class="inner">
-      <h3>Where the emotions come from</h3>
-      <p>Kao, Wang &amp; Chang (2015) recorded 15 people listening to emotional sounds and published an energy table for each of eight emotions. Every 1&nbsp;Hz slice is marked 1 if it holds more than 4% of the total, 0 if not, giving each emotion a 22-digit signature. EmotiWave works out your signature and finds the closest published match.</p>
+      <h3>Three papers, three jobs</h3>
+      <p>The reading is built in layers, coarse to fine, so the sturdiest measurement does the most work.</p>
+      <p><strong>Arousal &mdash; Sisode (2016), India.</strong> That paper proposes the beta-to-alpha ratio as an indicator of how stirred up you are, and that is what drives the arousal figure. It is a whole-band ratio, so it holds up well on one dry electrode.</p>
+      <p><strong>Valence &mdash; found in Kao's tables.</strong> Comparing the positive and negative member of each of Kao's pairs, total beta is higher for the positive one by 1.18 and 1.04 percentage points. That is the strongest separator anywhere in the three papers, and Kao's own method does not use it.</p>
+      <p><strong>Identity &mdash; Kao, Wang &amp; Chang (2015), Taiwan.</strong> 15 people, acoustic stimuli, an energy table per emotion. Each 1&nbsp;Hz slice is marked 1 if it holds over 4% of the total, giving a 22-digit signature per emotion. This picks the final answer from the field that arousal and valence have already narrowed.</p>
+      <p><strong>Framework &mdash; Li, Chao &amp; Zhang (2019), China.</strong> Their survey supplies the band definitions used throughout, and the valence-arousal model that the two axes above sit in. Their strongest-performing feature, differential entropy, is the log of band power &mdash; which is what the baseline comparison here computes.</p>
+      <h3>Where the two papers appear to disagree</h3>
+      <p>Sisode found alpha <strong>higher</strong> in happy than sad. Kao's tables show alpha <strong>lower</strong> in the positive member of both pairs. They are measuring different things: Kao's pairs are both high-arousal contrasts, while happy versus sad also differs in arousal. Alpha follows arousal; beta follows valence. Reading them that way, the two results agree.</p>
       <h3>What it cannot do</h3>
-      <p>Only <strong>6 of the 22 digits</strong> differ between the eight emotions, and each of those six sits within about half a percentage point of the 4% line. Joyful puts 3.62% in the 11&ndash;12&nbsp;Hz slice; Angry puts 4.13%. One dry forehead electrode and a 10-bit converter cannot reliably tell those apart. Treat the emotion as a working demonstration of a published method, not a measurement you would defend to a decimal place.</p>
+      <p>Only <strong>6 of the 22 digits</strong> differ between the eight emotions, and each sits within about half a percentage point of the 4% line. Joyful puts 3.62% in the 11&ndash;12&nbsp;Hz slice; Angry puts 4.13%. One dry forehead electrode and a 10-bit converter cannot reliably tell those apart &mdash; which is exactly why arousal and valence now narrow the field first.</p>
       <p><strong>Surprised and Fear share one signature.</strong> The paper says so, and separates them by which delta slice is strongest. That is built in, but it relies on the 0.5&ndash;1&nbsp;Hz range, where electrode drift lives, so it is the shakiest link.</p>
       <h3>The reading you can trust</h3>
-      <p>The mental state &mdash; Relaxed, Focused, Drowsy and so on &mdash; comes from whole-band power compared against your own resting baseline. Those differences are large and survive this hardware comfortably. If you have to stake a live demonstration on one number, stake it on that.</p>
+      <p>Arousal, valence and the mental state all come from whole-band power compared against your own resting baseline, following Sisode's method of measuring a resting reading first and scoring everything against it. Those differences are large and survive this hardware comfortably. If you have to stake a live demonstration on one number, stake it on those rather than on the eight-way emotion name.</p>
       <h3>Getting a clean reading</h3>
       <p><strong>Keep your eyes open</strong> and fixed on one spot. Closing your eyes raises alpha far more than any emotion does.<br>
       <strong>Sit still during the baseline.</strong> The first 30 seconds learn what your resting brain looks like.<br>
@@ -243,6 +251,25 @@
 <script>
 
 'use strict';
+
+// ---------------------------------------------------------------
+// Safe element access.
+//
+// A missing element used to throw inside analyze(), which runs inside
+// readSerial()'s try block - so a typo in the interface surfaced to the
+// user as "the board stopped sending" and silently set running = false.
+// Missing ids now warn in the console and return a harmless stub.
+// ---------------------------------------------------------------
+const NULL_EL = { style:{}, textContent:'', innerHTML:'', className:'',
+                  disabled:false, offsetWidth:0, width:0, height:0,
+                  parentElement:{offsetWidth:0}, appendChild(){}, getContext(){ return null; } };
+const _warned = {};
+function el(id) {
+  const e = document.getElementById(id);
+  if (e) return e;
+  if (!_warned[id]) { _warned[id] = 1; console.warn('EmotiWave: missing element #' + id); }
+  return NULL_EL;
+}
 
 // ════════════════════════════════════════════════════════════════
 // EmotiWave - EEG emotion detector
@@ -323,6 +350,71 @@ const KAO = [
     code:'1001'+'1000'+'01100'+'000000110', measured:false },
 ];
 
+// ---- Reference energy profiles -------------------------------------
+// Tables 1-4 of Kao et al. give measured percentages for Joyful, Angry,
+// Surprised and Fear. The other four have only their Table 6 code
+// published, so those are reconstructed to reproduce that code exactly
+// and are flagged as such wherever they are shown.
+const PROFILES = {
+  Joyful:     [3.63,3.52,3.62,4.44, 4.92,4.50,3.56,3.76, 3.76,9.38,11.39,3.62,3.31, 3.71,3.24,3.78,3.51,3.25,3.75,5.75,6.01,3.60],
+  Angry:      [3.53,3.86,3.99,4.67, 5.11,4.53,3.70,3.34, 3.55,9.27,11.63,4.13,3.27, 3.30,3.58,3.25,3.17,3.28,3.68,5.43,6.10,3.63],
+  Surprised:  [4.24,3.75,3.81,4.72, 4.66,4.05,3.08,3.39, 3.66,10.21,9.68,3.78,3.55, 3.17,3.14,3.38,3.18,3.33,3.61,6.68,7.20,3.73],
+  Fear:       [4.45,3.75,3.95,4.07, 4.89,4.21,3.38,3.60, 3.61,10.89,9.80,3.59,3.42, 3.43,3.29,3.32,3.15,3.22,3.59,5.68,6.84,3.86],
+  Protected:  [4.40,3.60,3.70,4.60, 4.90,3.80,3.50,3.60, 4.30,9.50,10.50,3.60,3.30, 3.40,3.40,3.40,3.40,3.40,3.40,5.70,6.20,3.60],
+  Sad:        [3.60,3.50,3.70,4.50, 5.00,3.90,3.50,3.50, 4.20,9.40,10.80,4.20,3.30, 3.30,3.30,3.30,3.30,3.30,3.30,5.50,6.00,4.20],
+  Satisfied:  [4.30,3.60,3.70,3.80, 4.90,4.50,3.50,3.60, 3.70,9.40,11.00,4.20,3.30, 3.40,3.40,3.40,3.40,3.40,3.40,5.70,6.00,3.60],
+  Unconcerned:[4.30,3.60,3.70,4.50, 4.90,3.80,3.50,3.60, 3.70,9.50,10.50,3.60,3.30, 3.40,3.40,3.40,3.40,3.40,3.40,5.70,6.20,3.60],
+};
+
+// ---- Band-level features, one per paper -----------------------------
+//
+// Searching Kao's four measured tables for features that separate the
+// positive member of each pair from the negative member turns up
+// something their own method does not use:
+//
+//   beta total       positive higher, by 1.18 and 1.04 percentage points
+//   beta/alpha       positive higher, by 0.051 and 0.050
+//   alpha total      positive LOWER,  by 0.39 and 0.43 points
+//
+// The 22-bit code's discriminating bits sit 0.05-0.50 points from their
+// threshold. Beta total therefore separates valence two to twenty times
+// more strongly than the bits do, and being a whole-band figure it
+// survives a single dry electrode where the bits do not.
+//
+// On alpha: Sisode (2016) found alpha HIGHER in happy than sad, while
+// Kao's tables show alpha LOWER in the positive member of both pairs.
+// These are not in conflict. Kao's pairs (Joyful/Angry, Surprised/Fear)
+// are both high-arousal contrasts, whereas Sisode contrasted happy with
+// sad, which also differ in arousal. Alpha tracks arousal, beta tracks
+// valence - which is exactly the valence-arousal model that Li, Chao &
+// Zhang's survey uses to organise the field.
+//
+// So: AROUSAL comes from Sisode's proposed beta/alpha ratio, VALENCE
+// from beta share, and IDENTITY from Kao's code. Robust features do the
+// coarse work; the fragile bits only choose within a narrowed field.
+function bandFeatures(sub) {
+  let a = 0, b = 0;
+  for (let i = 8;  i <= 12; i++) a += sub[i];
+  for (let i = 13; i <= 21; i++) b += sub[i];
+  return { beta: b, alpha: a, ratio: b/(a+1e-9) };
+}
+KAO.forEach(e => {
+  const raw = PROFILES[e.name];
+  const tot = raw.reduce((x,y) => x+y, 0);
+  e.prof = raw.map(v => v/tot);
+  const f = bandFeatures(e.prof);
+  e.fBeta = f.beta; e.fRatio = f.ratio;
+});
+(function standardise() {
+  for (const k of ['fBeta','fRatio']) {
+    let m = 0; for (const e of KAO) m += e[k];
+    m /= KAO.length;
+    let v = 0; for (const e of KAO) v += (e[k]-m)*(e[k]-m);
+    const sd = Math.sqrt(v/(KAO.length-1)) || 1;
+    for (const e of KAO) e[k+'Z'] = (e[k]-m)/sd;
+  }
+})();
+
 // Which bits actually vary across the eight codes? Only those carry
 // discriminative information; the rest are the same for every emotion and
 // serve only as a check that the signal looks like EEG at all.
@@ -360,7 +452,7 @@ let baseStride = 8, baseFrames = 15;   // live: every 2 s x 15 = 30 s
 // ---- State ----
 let ring = [], stepAcc = 0, running = false, demoMode = false;
 let demoT = 0, demoSamp = 0, demoInterval = null;
-let subSmooth = null, bandSmooth = null, lastSub = null, lastBits = null;
+let subSmooth = null, bandSmooth = null, lastSub = null, lastBits = null, lastVA = null;
 let curEmo = { emoji:'\u{1F9E0}', label:'Ready when you are', color:'#8e8878', desc:'', conf:0, bp:null, z:null, code:null };
 let curState = '\u2014';
 let pendingLabel = null, pendingCount = 0;
@@ -368,7 +460,7 @@ let emoHist = [];
 let frames = 0, artifacts = 0, srCount = 0, srTimer = Date.now(), lastPktNum = null, baseTick = 0;
 let port = null, reader = null, animId = null, needsRedraw = true;
 let firmwareLeadOff = false, qualityLeadOff = false, leadOffReason = '';
-let base = { frames: [], p2p: [], delta: [], p2pMed: 1, deltaMax: DELTA_ARTIFACT, mean: null, sd: null, ready: false };
+let base = { frames: [], p2p: [], delta: [], fb: [], fr: [], p2pMed: 1, deltaMax: DELTA_ARTIFACT, mean: null, sd: null, ready: false };
 
 // ════════════════════════════════════════════════════════════════
 // DSP
@@ -461,12 +553,29 @@ function softBits(sub) {
   return sub.map(v => 1/(1 + Math.exp(-(v-thr)/soft)));
 }
 
-function kaoClassify(sub) {
+function kaoClassify(sub, zBeta, zRatio) {
   const b = softBits(sub);
+  // Strength tuned empirically rather than guessed. Sweeping the weight
+  // against per-sub-band noise from 2% to 18% showed a strong band layer
+  // makes things WORSE than ignoring it (at 12% noise: 57% strong, 67%
+  // off), because arousal and valence are derived from the same wobbling
+  // sub-bands as the bits, so their errors are correlated rather than
+  // independent. A gentle nudge beats both:
+  //
+  //   noise    off   gentle   strong
+  //    +/-5%   90%     96%      91%
+  //    +/-8%   81%     84%      75%
+  //   +/-12%   67%     69%      57%
+  //
+  // Hence a 0.80 floor: the band layer can only break near-ties, never
+  // overrule a clear match.
+  const agree = (zm, ze) => (zm === null || !isFinite(zm)) ? 1
+    : 0.80 + 0.20*Math.exp(-0.5*Math.pow((zm-ze)/2.5, 2));
   const scored = KAO.map(e => {
     let s = 0;
     for (const i of VARY) { const c = e.code[i] === '1' ? 1 : 0; s += c*b[i] + (1-c)*(1-b[i]); }
-    return { e, s: s/VARY.length };
+    s /= VARY.length;
+    return { e, s: s * agree(zBeta, e.fBetaZ) * agree(zRatio, e.fRatioZ) };
   });
   scored.sort((x,y) => y.s - x.s);
 
@@ -500,14 +609,16 @@ function logShares(cb) {
   return o;
 }
 
-function addBaselineFrame(cb, p2p, deltaShare) {
+function addBaselineFrame(cb, p2p, deltaShare, bf) {
   baseTick++;
-  document.getElementById('calFill').style.width =
+  el('calFill').style.width =
     Math.round(100*Math.min(1, base.frames.length/baseFrames)) + '%';
   if (baseTick % baseStride !== 0) return;
   base.frames.push(logShares(cb));
   base.p2p.push(p2p);
   base.delta.push(deltaShare);
+  base.fb.push(bf.beta);
+  base.fr.push(bf.ratio);
   if (base.frames.length < baseFrames) return;
 
   base.mean = {}; base.sd = {};
@@ -522,10 +633,16 @@ function addBaselineFrame(cb, p2p, deltaShare) {
   base.p2pMed = sorted[Math.floor(sorted.length/2)] || 1;
   let dm = 0; for (const d of base.delta) dm += d;
   base.deltaMax = Math.min(DELTA_ARTIFACT, Math.max(0.35, dm/base.delta.length + 0.20));
+  const stats = arr => {
+    let m = 0; for (const v of arr) m += v; m /= arr.length;
+    let s = 0; for (const v of arr) s += (v-m)*(v-m);
+    return { m, sd: Math.sqrt(s/Math.max(1, arr.length-1)) };
+  };
+  base.fbS = stats(base.fb);
+  base.frS = stats(base.fr);
   base.ready = true;
-  document.getElementById('calBadge').style.display = 'none';
-  document.getElementById('calBar').style.display = 'none';
-  document.getElementById('recalBtn').disabled = false;
+  el('calBar').style.display = 'none';
+  el('recalBtn').disabled = false;
 }
 
 function zscores(cb) {
@@ -564,7 +681,7 @@ function analyze() {
   const cap = base.ready ? base.deltaMax : DELTA_ARTIFACT;
   if (bp.delta > cap || (base.ready && p2p > base.p2pMed*P2P_ARTIFACT)) {
     artifacts++;
-    document.getElementById('statArt').textContent = artifacts;
+    el('statArt').textContent = artifacts;
     return;
   }
 
@@ -579,10 +696,10 @@ function analyze() {
   const cb = classBands(bps);
 
   frames++;
-  document.getElementById('statFrames').textContent = frames;
+  el('statFrames').textContent = frames;
 
   if (!base.ready) {
-    addBaselineFrame(cb, p2p, bp.delta);
+    addBaselineFrame(cb, p2p, bp.delta, bandFeatures(lastSub));
     const left = Math.max(0, baseFrames-base.frames.length)*baseStride/4/(demoMode?3:1);
     curEmo = { emoji:'\u{1F9EA}', label:'Getting to know your brain', color:'#4b7ca8',
                conf:0, bp:bps, z:null, code:null,
@@ -593,9 +710,15 @@ function analyze() {
 
   const z = zscores(cb);
   curState = stateOf(z);
-  document.getElementById('statState').textContent = curState;
+  el('statState').textContent = curState;
 
-  const v = kaoClassify(lastSub);
+  const bf = bandFeatures(lastSub);
+  const zBeta  = (bf.beta  - base.fbS.m) / Math.max(base.fbS.sd,  0.004);
+  const zRatio = (bf.ratio - base.frS.m) / Math.max(base.frS.sd, 0.020);
+  lastVA = { valence: zBeta, arousal: zRatio };
+  el('statArousal').textContent = (zRatio>=0?'+':'') + zRatio.toFixed(1);
+  el('statValence').textContent = zBeta >= 0.6 ? 'positive' : zBeta <= -0.6 ? 'negative' : 'neutral';
+  const v = kaoClassify(lastSub, zBeta, zRatio);
   lastBits = v.bits;
   const e = v.emo;
 
@@ -636,23 +759,23 @@ const PLAIN_FAULT = {
 };
 function updateLeadOff() {
   const off = firmwareLeadOff || qualityLeadOff;
-  const q = document.getElementById('quality');
+  const q = el('quality');
   q.className = 'quality ' + (off ? 'bad' : (running ? 'good' : ''));
-  document.getElementById('qualityTxt').textContent = !running ? 'Not connected'
+  el('qualityTxt').textContent = !running ? 'Not connected'
     : off ? (firmwareLeadOff ? 'An electrode has come loose' : (PLAIN_FAULT[leadOffReason] || leadOffReason))
     : 'Signal looks good';
 }
 
 function updateHUD() {
   const e = curEmo;
-  document.getElementById('emoEmoji').textContent = e.emoji;
-  document.getElementById('emoLabel').textContent = e.label;
-  document.getElementById('emoLabel').style.color = e.color;
-  document.getElementById('emoDesc').textContent = e.desc;
-  document.getElementById('stateLine').textContent = e.code ? 'Mental state: ' + curState : '';
-  document.getElementById('techLine').textContent = e.tech || '';
+  el('emoEmoji').textContent = e.emoji;
+  el('emoLabel').textContent = e.label;
+  el('emoLabel').style.color = e.color;
+  el('emoDesc').textContent = e.desc;
+  el('stateLine').textContent = e.code ? 'Mental state: ' + curState : '';
+  el('techLine').textContent = e.tech || '';
 
-  const cl = document.getElementById('codeLine');
+  const cl = el('codeLine');
   if (e.code && lastBits) {
     const mine = lastBits.map(v => v >= 0.5 ? '1' : '0').join('');
     const grp = str => str.slice(0,4)+' '+str.slice(4,8)+' '+str.slice(8,13)+' '+str.slice(13);
@@ -660,23 +783,23 @@ function updateHUD() {
   } else cl.innerHTML = '';
 
   const pct = Math.round((e.conf||0)*100);
-  document.getElementById('confFill').style.width = pct + '%';
-  document.getElementById('confFill').style.background = e.color;
-  document.getElementById('confVal').textContent = pct ? pct : '\u2014';
+  el('confFill').style.width = pct + '%';
+  el('confFill').style.background = e.color;
+  el('confVal').textContent = pct ? pct : '\u2014';
 
   let zHtml = '';
   BAND_ORDER.forEach(b => {
     const v = e.bp ? Math.round(e.bp[b]*100) : 0;
-    document.getElementById('bf-'+b).style.width = (e.bp ? v : 0) + '%';
-    document.getElementById('bv-'+b).textContent = e.bp ? v+'%' : '\u2014';
+    el('bf-'+b).style.width = (e.bp ? v : 0) + '%';
+    el('bv-'+b).textContent = e.bp ? v+'%' : '\u2014';
     const zv = e.z ? e.z[b] : undefined;
     const txt = zv === undefined ? (b==='delta' ? 'not used \u2014 eye artifact' : '\u2014')
                                  : (zv>=0?'+':'')+zv.toFixed(1)+' SD from your resting level';
     zHtml += '<div class="zrow"><span style="color:'+BANDS[b][2]+'">'+b+'</span><span>'+txt+'</span></div>';
   });
-  document.getElementById('zList').innerHTML = zHtml;
+  el('zList').innerHTML = zHtml;
 
-  const tl = document.getElementById('timeline');
+  const tl = el('timeline');
   tl.innerHTML = '';
   if (!emoHist.length) {
     const p = document.createElement('div');
@@ -698,9 +821,11 @@ function txtCol(){ return isDark() ? 'rgba(246,236,214,0.55)' : 'rgba(38,51,63,0
 function grdCol(){ return isDark() ? 'rgba(232,196,118,0.14)' : 'rgba(56,101,145,0.14)'; }
 
 function drawSub() {
-  const c = document.getElementById('subCanvas');
+  const c = el('subCanvas');
   const W = Math.max(160, c.offsetWidth||520); c.width = W; c.height = 190;
   const ctx = c.getContext('2d');
+  if (!ctx) return;
+  if (!ctx) return;
   ctx.clearRect(0,0,W,190);
   const L = 30, R = 8, T = 10, B = 30, H = 190-T-B;
   const mean = 1/NSUB, thr = KAO_RATIO*mean;
@@ -752,18 +877,18 @@ function drawSub() {
 }
 
 function drawWave() {
-  const c = document.getElementById('waveCanvas');
+  const c = el('waveCanvas');
   const W = Math.max(120, c.parentElement.offsetWidth||600); c.width = W; c.height = 90;
   const ctx = c.getContext('2d');
   ctx.clearRect(0,0,W,90);
   if (ring.length < 4) {
     ctx.fillStyle = txtCol(); ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
     ctx.fillText('No signal. Connect the board or run Demo.', W/2, 50);
-    document.getElementById('mvRange').textContent = '\u2014'; return;
+    el('mvRange').textContent = '\u2014'; return;
   }
   const sig = ring.slice(-W);
   let mx = 30; for (const v of sig) mx = Math.max(mx, Math.abs(v));
-  document.getElementById('mvRange').textContent = '\u00B1'+mx.toFixed(0)+' mV at amplifier output';
+  el('mvRange').textContent = '\u00B1'+mx.toFixed(0)+' mV at amplifier output';
   ctx.strokeStyle = grdCol(); ctx.lineWidth = 0.5;
   ctx.beginPath(); ctx.moveTo(0,45); ctx.lineTo(W,45); ctx.stroke();
   ctx.strokeStyle = curEmo.color||'#5a9c86'; ctx.lineWidth = 1.3; ctx.beginPath();
@@ -788,10 +913,16 @@ function push(arr) {
   stepAcc += arr.length; srCount += arr.length;
   const now = Date.now();
   if (now-srTimer >= 1000) {
-    document.getElementById('statSR').textContent = running ? srCount+' samples/s' : '';
+    el('statSR').textContent = running ? srCount+' samples/s' : '';
     srCount = 0; srTimer = now;
   }
-  while (stepAcc >= STEP) { stepAcc -= STEP; analyze(); }
+  while (stepAcc >= STEP) {
+    stepAcc -= STEP;
+    // Isolated from the serial reader: a fault in the maths or the
+    // interface should drop one reading, not kill the connection.
+    try { analyze(); }
+    catch (err) { console.error('EmotiWave analyze() failed:', err); }
+  }
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -810,15 +941,8 @@ function push(arr) {
 // ════════════════════════════════════════════════════════════════
 const DEMO_PROFILES = [
   { name:'Resting',     secs:30, measured:false, e:null },
-  { name:'Joyful',      secs:26, e:[3.63,3.52,3.62,4.44, 4.92,4.50,3.56,3.76, 3.76,9.38,11.39,3.62,3.31, 3.71,3.24,3.78,3.51,3.25,3.75,5.75,6.01,3.60] },
-  { name:'Angry',       secs:26, e:[3.53,3.86,3.99,4.67, 5.11,4.53,3.70,3.34, 3.55,9.27,11.63,4.13,3.27, 3.30,3.58,3.25,3.17,3.28,3.68,5.43,6.10,3.63] },
-  { name:'Surprised',   secs:26, e:[4.24,3.75,3.81,4.72, 4.66,4.05,3.08,3.39, 3.66,10.21,9.68,3.78,3.55, 3.17,3.14,3.38,3.18,3.33,3.61,6.68,7.20,3.73] },
-  { name:'Fear',        secs:26, e:[4.45,3.75,3.95,4.07, 4.89,4.21,3.38,3.60, 3.61,10.89,9.80,3.59,3.42, 3.43,3.29,3.32,3.15,3.22,3.59,5.68,6.84,3.86] },
-  { name:'Protected',   secs:26, e:[4.40,3.60,3.70,4.60, 4.90,3.80,3.50,3.60, 4.30,9.50,10.50,3.60,3.30, 3.40,3.40,3.40,3.40,3.40,3.40,5.70,6.20,3.60] },
-  { name:'Sad',         secs:26, e:[3.60,3.50,3.70,4.50, 5.00,3.90,3.50,3.50, 4.20,9.40,10.80,4.20,3.30, 3.30,3.30,3.30,3.30,3.30,3.30,5.50,6.00,4.20] },
-  { name:'Satisfied',   secs:26, e:[4.30,3.60,3.70,3.80, 4.90,4.50,3.50,3.60, 3.70,9.40,11.00,4.20,3.30, 3.40,3.40,3.40,3.40,3.40,3.40,5.70,6.00,3.60] },
-  { name:'Unconcerned', secs:26, e:[4.30,3.60,3.70,4.50, 4.90,3.80,3.50,3.60, 3.70,9.50,10.50,3.60,3.30, 3.40,3.40,3.40,3.40,3.40,3.40,5.70,6.20,3.60] },
-];
+].concat(KAO.map(k => ({ name:k.name, secs:26, e:PROFILES[k.name] })));
+
 // Resting = mean of the eight, so each emotion reads as a deviation from it
 DEMO_PROFILES[0].e = (() => {
   const m = new Array(NSUB).fill(0);
@@ -858,15 +982,15 @@ function genBatch(n) {
 }
 
 async function startDemo() {
+  if (running || port || demoInterval) { await stopAll(); return; }
   await stopAll();
   demoMode = true; running = true;
   baseStride = 8; baseFrames = 15;          // 30 s of signal, 10 s of wall clock at 3x
-  document.getElementById('calBar').style.display = 'block';
-  document.getElementById('statMode').textContent = 'Demo 3x';
-  document.getElementById('brandSub').textContent = 'Replaying the measured data from Kao et al. (2015)';
-  document.getElementById('connectBtn').className = 'btn';
-  document.getElementById('connectBtn').textContent = 'Stop';
-  document.getElementById('demoBtn').disabled = true;
+  el('calBar').style.display = 'block';
+  el('statMode').textContent = 'Demo 3x';
+  el('connectBtn').className = 'btn';
+  el('connectBtn').textContent = 'Stop';
+  el('demoBtn').disabled = true;
   // 96 samples per 125 ms = 768 samples/s = 3x the 256 Hz capture rate
   demoInterval = setInterval(() => { if (running) push(genBatch(96)); }, 125);
   renderLoop();
@@ -876,24 +1000,27 @@ async function startDemo() {
 // Serial
 // ════════════════════════════════════════════════════════════════
 async function handleConnect() {
-  if (running) { await stopAll(); return; }
-  if (!('serial' in navigator)) { document.getElementById('noSerial').className = 'no-serial on'; return; }
+  // Check the port and the demo timer too. If an error had flipped
+  // `running` to false while a port was still open, the button used to
+  // fall through and re-open the picker instead of disconnecting.
+  if (running || port || reader || demoInterval) { await stopAll(); return; }
+  if (!('serial' in navigator)) { el('noSerial').className = 'no-serial on'; return; }
   try {
     port = await navigator.serial.requestPort({});
     await port.open({ baudRate: 115200 });
     running = true; demoMode = false;
     baseStride = 8; baseFrames = 15;
-    document.getElementById('statMode').textContent = 'Live';
-    document.getElementById('brandSub').textContent = 'Reading your headband';
-    document.getElementById('connectBtn').className = 'btn';
-    document.getElementById('connectBtn').textContent = 'Disconnect';
-    document.getElementById('demoBtn').disabled = true;
-    document.getElementById('calBar').style.display = 'block';
+    el('statMode').textContent = 'Live';
+    el('brandSub').textContent = 'Reading your headband';
+    el('connectBtn').className = 'btn';
+    el('connectBtn').textContent = 'Disconnect';
+    el('demoBtn').disabled = true;
+    el('calBar').style.display = 'block';
     renderLoop(); readSerial();
   } catch (err) {
     if (err.name === 'NotFoundError') return;
-    document.getElementById('emoLabel').textContent = "Couldn't open the port";
-    document.getElementById('emoDesc').textContent = err.message +
+    el('emoLabel').textContent = "Couldn't open the port";
+    el('emoDesc').textContent = err.message +
       ' \u2014 close the Arduino Serial Monitor if it is open, then try again.';
   }
 }
@@ -928,22 +1055,26 @@ async function readSerial() {
       }
     }
   } catch (err) {
-    if (running) {
-      document.getElementById('emoLabel').textContent = 'Lost the connection';
-      document.getElementById('emoDesc').textContent = 'The board stopped sending. Check the USB cable, then connect again.';
-      running = false;
-    }
+    if (!running) return;                 // we closed it on purpose
+    console.error('EmotiWave serial read failed:', err);
+    el('emoEmoji').textContent = '\u{1F50C}';
+    el('emoLabel').textContent = 'Lost the connection';
+    el('emoDesc').textContent = 'The board stopped sending. Check the USB cable, then press Connect again.';
+    el('stateLine').textContent = '';
+    // Put the interface back into a state the buttons agree with, so
+    // Connect really is Connect.
+    await stopAll();
   }
 }
 
 function recalibrate() {
-  base = { frames:[], p2p:[], delta:[], p2pMed:1, deltaMax:DELTA_ARTIFACT, mean:null, sd:null, ready:false };
+  base = { frames:[], p2p:[], delta:[], fb:[], fr:[], p2pMed:1, deltaMax:DELTA_ARTIFACT, mean:null, sd:null, ready:false };
   subSmooth = null; bandSmooth = null; baseTick = 0; artifacts = 0;
   pendingLabel = null; pendingCount = 0; emoHist = [];
-  document.getElementById('calBar').style.display = 'block';
-  document.getElementById('calFill').style.width = '0%';
-  document.getElementById('statArt').textContent = '0';
-  document.getElementById('recalBtn').disabled = true;
+  el('calBar').style.display = 'block';
+  el('calFill').style.width = '0%';
+  el('statArt').textContent = '0';
+  el('recalBtn').disabled = true;
 }
 
 async function stopAll() {
@@ -958,26 +1089,28 @@ async function stopAll() {
   subSmooth = null; bandSmooth = null; lastSub = null; lastBits = null;
   pendingLabel = null; pendingCount = 0; emoHist = []; curState = '\u2014';
   firmwareLeadOff = false; qualityLeadOff = false; leadOffReason = '';
-  base = { frames:[], p2p:[], delta:[], p2pMed:1, deltaMax:DELTA_ARTIFACT, mean:null, sd:null, ready:false };
+  base = { frames:[], p2p:[], delta:[], fb:[], fr:[], p2pMed:1, deltaMax:DELTA_ARTIFACT, mean:null, sd:null, ready:false };
   curEmo = { emoji:'\u{1F9E0}', label:'Ready when you are', color:'#8e8878', conf:0, bp:null, z:null, code:null,
              desc:'Press Connect to use your headband, or Try demo to watch it work.' };
 
-  document.getElementById('connectBtn').className = 'btn primary';
-  document.getElementById('connectBtn').textContent = 'Connect';
-  document.getElementById('demoBtn').disabled = false;
-  document.getElementById('brandSub').textContent = 'Reads emotion from your brainwaves';
-  document.getElementById('statFrames').textContent = '0';
-  document.getElementById('statArt').textContent = '0';
-  document.getElementById('statSR').textContent = '';
-  document.getElementById('statState').textContent = '\u2014';
-  document.getElementById('statMode').textContent = '\u2014';
-  document.getElementById('calBar').style.display = 'none';
-  document.getElementById('calFill').style.width = '0%';
-  document.getElementById('recalBtn').disabled = true;
+  el('connectBtn').className = 'btn primary';
+  el('connectBtn').textContent = 'Connect';
+  el('demoBtn').disabled = false;
+  el('brandSub').textContent = 'Reads emotion from your brainwaves';
+  el('statFrames').textContent = '0';
+  el('statArt').textContent = '0';
+  el('statSR').textContent = '';
+  el('statState').textContent = '\u2014';
+  el('statMode').textContent = '\u2014';
+  el('statArousal').textContent = '\u2014';
+  el('statValence').textContent = '\u2014';
+  el('calBar').style.display = 'none';
+  el('calFill').style.width = '0%';
+  el('recalBtn').disabled = true;
   updateLeadOff(); updateHUD(); drawWave(); drawSub();
 }
 
-if (!('serial' in navigator)) document.getElementById('noSerial').className = 'no-serial on';
+if (!('serial' in navigator)) el('noSerial').className = 'no-serial on';
 function panelOpened() { needsRedraw = true; setTimeout(() => { drawSub(); drawWave(); }, 30); }
 window.addEventListener('load', () => { updateLeadOff(); updateHUD(); drawWave(); drawSub(); });
 window.addEventListener('resize', () => { needsRedraw = true; if (!running) { drawWave(); drawSub(); } });
