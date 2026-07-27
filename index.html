@@ -319,7 +319,6 @@ const SUBBANDS = [
   ['b6',18,19],['b7',19,20],['b8',20,21],['b9',21,22],
 ];
 const NSUB = SUBBANDS.length;
-const TOTAL_HI = 25;               // Kao normalises over 0.2-25 Hz
 
 // Kao's rule is "above 4% of total energy". Their 22 sub-bands account for
 // essentially all of that total, so the mean sub-band share is 100/22 =
@@ -518,12 +517,33 @@ function bandPowers(spec) {
   return bp;
 }
 
-// Kao sub-band shares, normalised over 0.5-25 Hz as their Eq. (2) and (3).
+// Kao sub-band shares.
+//
+// Two corrections against the naive version:
+//
+// 1. Half-open bins. sumBins() is inclusive at both ends, so 1-2 Hz and
+//    2-3 Hz both claimed the bin at exactly 2 Hz. With 22 sub-bands that
+//    is 21 double-counted boundaries - the shares summed to 1.103 instead
+//    of 1, inflating every one of them by about 10%.
+//
+// 2. Normalised by the sub-bands themselves, not by 0.5-25 Hz. Kao's Eq.
+//    (2) defines the total over 0.2-25 Hz, but their four zone totals sum
+//    to exactly 100.00, so in their data 22-25 Hz contributed nothing.
+//    Dividing by a span that includes real 22-25 Hz energy would judge
+//    every bit against a threshold roughly 9% too high, and would not
+//    match the reference profiles, which sum to 1 across the 22.
+function subBin(spec, lo, hi) {
+  const i0 = Math.max(1, Math.ceil(lo / spec.binHz));
+  const i1 = Math.min(Math.ceil(hi / spec.binHz) - 1, spec.p.length - 1);
+  let s = 0; for (let i = i0; i <= i1; i++) s += spec.p[i];
+  return s;
+}
 function subShares(spec) {
-  const tot = sumBins(spec, 0.5, TOTAL_HI) + 1e-12;
-  const out = new Array(NSUB);
-  for (let i = 0; i < NSUB; i++) out[i] = sumBins(spec, SUBBANDS[i][1], SUBBANDS[i][2]) / tot;
-  return out;
+  const raw = new Array(NSUB);
+  let tot = 0;
+  for (let i = 0; i < NSUB; i++) { raw[i] = subBin(spec, SUBBANDS[i][1], SUBBANDS[i][2]); tot += raw[i]; }
+  for (let i = 0; i < NSUB; i++) raw[i] /= (tot + 1e-12);
+  return raw;
 }
 
 function signalQuality(sig, spec) {
