@@ -903,14 +903,8 @@ async function readSerial() {
   try {
     reader = port.readable.getReader();
     while (running) {
-    const { value, done } = await reader.read();
-
-    if (done) {
-        console.log("Serial stream closed.");
-        break;
-    }
-
-    if (!value) continue;
+      const { value, done } = await reader.read();
+      if (done) break;
       buf += dec.decode(value, { stream:true });
       if (buf.length > 20000) buf = buf.slice(-4000);
       const lines = buf.split('\n'); buf = lines.pop();
@@ -933,17 +927,13 @@ async function readSerial() {
         }
       }
     }
-} catch (err) {
-    if (err.name === "AbortError") return;
-    console.error("Serial error:", err);
+  } catch (err) {
     if (running) {
-        document.getElementById("emoLabel").textContent =
-            "Connection Error";
-        document.getElementById("emoDesc").textContent =
-            err.message;
-        running = false;
+      document.getElementById('emoLabel').textContent = 'Lost the connection';
+      document.getElementById('emoDesc').textContent = 'The board stopped sending. Check the USB cable, then connect again.';
+      running = false;
     }
-}
+  }
 }
 
 function recalibrate() {
