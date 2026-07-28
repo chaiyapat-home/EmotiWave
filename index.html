@@ -186,7 +186,10 @@
     <div class="band"><span class="band-name">Theta<span class="band-what">drowsy, dreamy</span></span><div class="band-track"><div class="band-fill" id="bf-theta" style="background:#4e93b8"></div></div><span class="band-val" id="bv-theta">&mdash;</span></div>
     <div class="band"><span class="band-name">Alpha<span class="band-what">calm, relaxed</span></span><div class="band-track"><div class="band-fill" id="bf-alpha" style="background:#4e9a94"></div></div><span class="band-val" id="bv-alpha">&mdash;</span></div>
     <div class="band"><span class="band-name">Beta<span class="band-what">focused, thinking</span></span><div class="band-track"><div class="band-fill" id="bf-beta" style="background:#e0a93e"></div></div><span class="band-val" id="bv-beta">&mdash;</span></div>
-    <div class="band"><span class="band-name">Gamma<span class="band-what">alert, excited</span></span><div class="band-track"><div class="band-fill" id="bf-gamma" style="background:#cc7a3c"></div></div><span class="band-val" id="bv-gamma">&mdash;</span></div>
+    <div class="band"><span class="band-name">Gamma<span class="band-what">happiness &middot; not used</span></span><div class="band-track"><div class="band-fill" id="bf-gamma" style="background:#cc7a3c"></div></div><span class="band-val" id="bv-gamma">&mdash;</span></div>
+    <p style="font-size:11.5px;color:var(--text3);margin-top:13px;line-height:1.5">
+      Meanings from Li, Chao &amp; Zhang (2019) Table&nbsp;1. Gamma stays small and takes no part in the emotion reading &mdash; the emotion data only goes up to 22&nbsp;Hz.
+    </p>
   </div>
 
   <div class="card">
@@ -985,6 +988,22 @@ function demoProfile() {
   return DEMO_PROFILES[DEMO_PROFILES.length-1];
 }
 
+// Background above 22 Hz.
+//
+// Kao's scheme stops at 22 Hz - there is no gamma anywhere in that paper -
+// so replaying his spectra alone leaves the gamma bar reading exactly 0.00%
+// and looking broken. This adds a plain 1/f tail from 22 to 45 Hz so the
+// display resembles real EEG.
+//
+// It is background, not data: identical in every phase, carrying no
+// emotional information. It cannot affect the emotion reading either, since
+// subShares() normalises over the 22 sub-bands and discards everything above
+// 22 Hz. It moves only the five-band display and, being constant, cancels
+// out of the baseline-relative mental state.
+const DEMO_TAIL = [];
+for (let f = 22.5; f <= 44.5; f += 1)
+  DEMO_TAIL.push({ f, a: 82/Math.pow(f, 0.4), ph: (f*2.399) % (2*Math.PI) });
+
 function genBatch(n) {
   const p = demoProfile(), out = new Array(n);
   for (let i = 0; i < n; i++) {
@@ -993,6 +1012,7 @@ function genBatch(n) {
       const jit = 1 + 0.03*Math.sin(2*Math.PI*(0.021+0.007*k)*demoT + DEMO_PH[k]);
       s += DEMO_AMP*Math.sqrt(2*p.n[k]*jit)*Math.sin(2*Math.PI*p.f[k]*demoT + DEMO_PH[k]);
     }
+    for (const t of DEMO_TAIL) s += t.a*Math.sin(2*Math.PI*t.f*demoT + t.ph);
     out[i] = s + (Math.random()-0.5)*4;
     demoT += 1/FS;
     demoSamp++;
