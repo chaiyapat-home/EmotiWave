@@ -182,14 +182,11 @@
 
   <div class="card">
     <h2>Your brainwaves</h2>
-    <div class="band"><span class="band-name">Delta<span class="band-what">deep sleep</span></span><div class="band-track"><div class="band-fill" id="bf-delta" style="background:#2f5d8a"></div></div><span class="band-val" id="bv-delta">&mdash;</span></div>
-    <div class="band"><span class="band-name">Theta<span class="band-what">drowsy, dreamy</span></span><div class="band-track"><div class="band-fill" id="bf-theta" style="background:#4e93b8"></div></div><span class="band-val" id="bv-theta">&mdash;</span></div>
-    <div class="band"><span class="band-name">Alpha<span class="band-what">calm, relaxed</span></span><div class="band-track"><div class="band-fill" id="bf-alpha" style="background:#4e9a94"></div></div><span class="band-val" id="bv-alpha">&mdash;</span></div>
-    <div class="band"><span class="band-name">Beta<span class="band-what">focused, thinking</span></span><div class="band-track"><div class="band-fill" id="bf-beta" style="background:#e0a93e"></div></div><span class="band-val" id="bv-beta">&mdash;</span></div>
-    <div class="band"><span class="band-name">Gamma<span class="band-what">happiness &middot; not used</span></span><div class="band-track"><div class="band-fill" id="bf-gamma" style="background:#cc7a3c"></div></div><span class="band-val" id="bv-gamma">&mdash;</span></div>
-    <p style="font-size:11.5px;color:var(--text3);margin-top:13px;line-height:1.5">
-      Meanings from Li, Chao &amp; Zhang (2019) Table&nbsp;1. Gamma stays small and takes no part in the emotion reading &mdash; the emotion data only goes up to 22&nbsp;Hz.
-    </p>
+    <div class="band"><span class="band-name">Delta<span class="band-what">1&ndash;3 Hz &middot; deep sleep</span></span><div class="band-track"><div class="band-fill" id="bf-delta" style="background:#2f5d8a"></div></div><span class="band-val" id="bv-delta">&mdash;</span></div>
+    <div class="band"><span class="band-name">Theta<span class="band-what">4&ndash;7 Hz &middot; drowsy, meditative</span></span><div class="band-track"><div class="band-fill" id="bf-theta" style="background:#4e93b8"></div></div><span class="band-val" id="bv-theta">&mdash;</span></div>
+    <div class="band"><span class="band-name">Alpha<span class="band-what">8&ndash;12 Hz &middot; relaxed</span></span><div class="band-track"><div class="band-fill" id="bf-alpha" style="background:#4e9a94"></div></div><span class="band-val" id="bv-alpha">&mdash;</span></div>
+    <div class="band"><span class="band-name">Beta<span class="band-what">13&ndash;30 Hz &middot; concentration</span></span><div class="band-track"><div class="band-fill" id="bf-beta" style="background:#e0a93e"></div></div><span class="band-val" id="bv-beta">&mdash;</span></div>
+    <div class="band"><span class="band-name">Gamma<span class="band-what">31&ndash;40 Hz &middot; alertness</span></span><div class="band-track"><div class="band-fill" id="bf-gamma" style="background:#cc7a3c"></div></div><span class="band-val" id="bv-gamma">&mdash;</span></div>
   </div>
 
   <div class="card">
@@ -236,6 +233,8 @@
       <h3>What it cannot do</h3>
       <p>Only <strong>6 of the 22 digits</strong> differ between the eight emotions, and each sits within about half a percentage point of the 4% line. Joyful puts 3.62% in the 11&ndash;12&nbsp;Hz slice; Angry puts 4.13%. One dry forehead electrode and a 10-bit converter cannot reliably tell those apart &mdash; which is exactly why arousal and valence now narrow the field first.</p>
       <p><strong>Surprised and Fear share one signature.</strong> The paper says so, and separates them by which delta slice is strongest. That is built in, but it relies on the 0.5&ndash;1&nbsp;Hz range, where electrode drift lives, so it is the shakiest link.</p>
+      <h3>A note on gamma</h3>
+      <p>Li's survey lists gamma under happiness, because that paper describes every band in emotional terms. The broader literature ties gamma to attention, conscious perception and working memory, which is what most charts say. This dashboard uses the wider description. Nothing downstream changes: Kao's emotion data stops at 22&nbsp;Hz, so gamma never enters the emotion decision. It also sits above the BioAmp EXG Pill's roll-off near 44&nbsp;Hz, and on a forehead electrode it picks up jaw and eyebrow muscle as readily as brain activity.</p>
       <h3>The reading you can trust</h3>
       <p>Arousal, valence and the mental state all come from whole-band power compared against your own resting baseline, following Sisode's method of measuring a resting reading first and scoring everything against it. Those differences are large and survive this hardware comfortably. If you have to stake a live demonstration on one number, stake it on those rather than on the eight-way emotion name.</p>
       <h3>Getting a clean reading</h3>
@@ -307,7 +306,8 @@ const BANDS = {
   theta: [4,  7,  '#4e93b8'],
   alpha: [8,  12, '#4e9a94'],
   beta:  [13, 30, '#e0a93e'],
-  gamma: [31, 45, '#cc7a3c'],
+  gamma: [31, 40, '#cc7a3c'],   // Li Table 1 'Low gamma' - one clean meaning, and
+                                // entirely inside the EXG Pill's usable range
 };
 const BAND_ORDER = ['delta','theta','alpha','beta','gamma'];
 const CLASS_BANDS = ['theta','alpha','beta','gamma'];   // delta excluded: eye artifact
