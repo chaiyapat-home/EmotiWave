@@ -60,7 +60,13 @@
   .hero-body{flex:1;min-width:200px}
   .hero-label{font-size:29px;font-weight:600;letter-spacing:-.02em;line-height:1.15}
   .hero-desc{font-size:15px;color:var(--text2);margin-top:5px}
-  .hero-state{font-size:13px;color:var(--text3);margin-top:9px}
+  .hero-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .tag{font-size:11px;padding:3px 9px;border-radius:99px;white-space:nowrap;font-weight:500}
+  .tag-soft{background:var(--bg3);color:var(--text2)}
+  .tag-strong{background:var(--warm-soft);color:var(--accent2);border:1px solid var(--accent2)}
+  .state-card{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+  .state-lbl{font-size:11px;color:var(--accent);text-transform:uppercase;letter-spacing:.07em}
+  .state-val{font-size:24px;font-weight:600;letter-spacing:-.01em;margin-top:3px}
   .meter{height:6px;background:var(--bg3);border-radius:99px;margin-top:13px;overflow:hidden}
   .meter i{display:block;height:100%;width:0;border-radius:99px;transition:width .5s,background .4s}
   .hero-num{text-align:right;flex-shrink:0}
@@ -169,9 +175,11 @@
   <div class="card hero">
     <div class="hero-emoji" id="emoEmoji">&#129504;</div>
     <div class="hero-body">
-      <div class="hero-label" id="emoLabel">Ready when you are</div>
+      <div class="hero-head">
+        <div class="hero-label" id="emoLabel">Ready when you are</div>
+        <span class="tag tag-soft" id="emoTag">emotion</span>
+      </div>
       <div class="hero-desc" id="emoDesc">Press Connect to use your headband, or Try demo to watch it work.</div>
-      <div class="hero-state" id="stateLine"></div>
       <div class="meter"><i id="confFill"></i></div>
       <div class="meter" id="calBar" style="display:none"><i id="calFill" style="background:var(--accent)"></i></div>
     </div>
@@ -179,6 +187,14 @@
       <span>Match</span>
       <b id="confVal">&mdash;</b>
     </div>
+  </div>
+
+  <div class="card state-card">
+    <div class="state-left">
+      <div class="state-lbl">Mental state</div>
+      <div class="state-val" id="stateLine">&mdash;</div>
+    </div>
+    <span class="tag tag-strong">most reliable reading</span>
   </div>
 
   <div class="card">
@@ -236,8 +252,10 @@
       <p><strong>Surprised and Fear share one signature.</strong> The paper says so, and separates them by which delta slice is strongest. That is built in, but it relies on the 0.5&ndash;1&nbsp;Hz range, where electrode drift lives, so it is the shakiest link.</p>
       <h3>A note on gamma</h3>
       <p>Li's survey lists gamma under happiness, because that paper describes every band in emotional terms. The broader literature ties gamma to attention, conscious perception and working memory, which is what most charts say. This dashboard uses the wider description. Nothing downstream changes: Kao's emotion data stops at 22&nbsp;Hz, so gamma never enters the emotion decision. It also sits above the BioAmp EXG Pill's roll-off near 44&nbsp;Hz, and on a forehead electrode it picks up jaw and eyebrow muscle as readily as brain activity.</p>
-      <h3>The reading you can trust</h3>
-      <p>Arousal, valence and the mental state all come from whole-band power compared against your own resting baseline, following Sisode's method of measuring a resting reading first and scoring everything against it. Those differences are large and survive this hardware comfortably. If you have to stake a live demonstration on one number, stake it on those rather than on the eight-way emotion name.</p>
+      <h3>Which reading to trust</h3>
+      <p><strong>They are not equally reliable, and they answer different questions.</strong> The mental state asks how your brain is running; the emotion asks which of eight feelings you are having. If the two ever disagree, believe the mental state.</p>
+      <p><strong>Mental state</strong> is built on whole-band power, where the differences are several standard deviations wide. Testing it on simulated recordings: eyes closed scored 7.8, concentrating 11.1, drowsy 6.7 &mdash; all far past the 2.4 threshold needed to report anything at all.</p>
+      <p><strong>Emotion</strong> rests on six digits that sit within half a percentage point of the 4% line. Under realistic noise its accuracy falls from near-perfect to roughly half. It is a faithful implementation of a published method, at the edge of what this hardware can resolve.</p>
       <h3>Getting a clean reading</h3>
       <p><strong>Keep your eyes open</strong> and fixed on one spot. Closing your eyes raises alpha far more than any emotion does.<br>
       <strong>Sit still during the baseline.</strong> The first 30 seconds learn what your resting brain looks like.<br>
@@ -796,7 +814,8 @@ function updateHUD() {
   el('emoLabel').textContent = e.label;
   el('emoLabel').style.color = e.color;
   el('emoDesc').textContent = e.desc;
-  el('stateLine').textContent = e.code ? 'Mental state: ' + curState : '';
+  el('stateLine').textContent = e.code ? curState : '\u2014';
+  el('emoTag').textContent = e.code ? 'emotion \u00b7 indicative' : 'emotion';
   el('techLine').textContent = e.tech || '';
 
   const cl = el('codeLine');
