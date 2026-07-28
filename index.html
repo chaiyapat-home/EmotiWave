@@ -968,6 +968,23 @@ const DEMO_PROFILES = [
 ].concat(KAO.map(k => ({ name:k.name, secs:26, e:PROFILES[k.name] })));
 
 // Resting = mean of the eight, so each emotion reads as a deviation from it
+// Mental-state demo phases.
+//
+// Kao's eight spectra barely differ at band level - that is the finding this
+// project rests on - so replaying them never moves the mental state off
+// Neutral. These three phases exist purely to exercise that readout: the
+// resting profile with one band lifted, the way a real subject's would lift.
+//
+// They cannot share a phase with the emotion demo. The five bands sit inside
+// Kao's 0.5-22 Hz range, so any band-level change also changes the sub-band
+// shares the emotion code is built from. One signal cannot vary both
+// independently, so they take turns.
+const STATE_PHASES = [
+  { name:'State relaxed', secs:18, boost:{ a:2.1 } },
+  { name:'State focused', secs:18, boost:{ b:1.8 } },
+  { name:'State drowsy',  secs:18, boost:{ t:2.0, b:0.5, a:0.7 } },
+];
+
 DEMO_PROFILES[0].e = (() => {
   const m = new Array(NSUB).fill(0);
   for (let k = 1; k < DEMO_PROFILES.length; k++)
@@ -978,6 +995,16 @@ DEMO_PROFILES.forEach(p => {
   let s = 0; for (const v of p.e) s += v;
   p.n = p.e.map(v => v/s);
   p.f = SUBBANDS.map(sb => (sb[1]+sb[2])/2);
+});
+// Build the state phases from the resting profile with one band lifted
+STATE_PHASES.forEach(sp => {
+  const rest = DEMO_PROFILES[0].e;
+  const raw = rest.map((v, i) => v * (sp.boost[SUBBANDS[i][0][0]] || 1));
+  let tot = 0; for (const v of raw) tot += v;
+  sp.n = raw.map(v => v/tot);
+  sp.f = SUBBANDS.map(sb => (sb[1]+sb[2])/2);
+  sp.e = raw;
+  DEMO_PROFILES.push(sp);
 });
 const DEMO_AMP = 300;
 const DEMO_PH = SUBBANDS.map((_,i) => (i*2.399) % (2*Math.PI));
