@@ -451,38 +451,29 @@ const KAO_MEAN = (() => {
 // what makes an absolute threshold transfer between different rigs.
 function toKaoScale(sub) {
   if (!base.ready || !base.subMean) return sub;
+  // MULTIPLY each slice by the ratio between Kao's average and your own
+  // resting level - do not add the difference.
+  //
+  // An additive shift preserves absolute change, but this rig's slices are
+  // far smaller than Kao's, so a proportional emotional change produced a
+  // much smaller absolute shift and never crossed the 4% line. Everything
+  // read as one emotion. Multiplying preserves the proportion instead: at
+  // rest the reading lands exactly on Kao's average, and a slice that rises
+  // 8% above your rest rises 8% above his average too.
   const out = new Array(NSUB);
-  for (let i = 0; i < NSUB; i++)
-    out[i] = Math.max(1e-4, sub[i] - base.subMean[i] + KAO_MEAN[i]);
-
   let tot = 0;
-  for (let i = 0; i < NSUB; i++) tot += out[i];
+  for (let i = 0; i < NSUB; i++) {
+    // No clamp. It was tried, and it was wrong: this rig puts 24.7% of its
+    // energy in 0.5-1 Hz where Kao's equipment put 4.1%, so that slice needs
+    // a gain of 0.16. Six of the 22 slices need gains outside any sensible
+    // clamp, and capping them left errors of 5-6 percentage points against
+    // margins of 0.05-0.72. The full ratio is what makes the mapping exact.
+    const g = KAO_MEAN[i] / Math.max(base.subMean[i], 1e-6);
+    out[i] = Math.max(1e-6, sub[i] * g);
+    tot += out[i];
+  }
   for (let i = 0; i < NSUB; i++) out[i] /= tot;
-
-  // NOTE: rescaling each zone to Kao's zone total was tried here, to stop
-  // arousal-driven band shifts dragging the code. It made mild stress read
-  // correctly as "no clear reading", but cost 11 points of real-emotion
-  // accuracy (76% -> 65%) and broke a demo phase, so it was removed.
-  // Strong arousal biasing the code toward Joyful is a genuine limit of
-  // applying a fine absolute code to a signal whose balance is moving.
   return out;
-}
-
-// Kao's method has no neutral - it always names one of eight, so a calm
-// subject still gets a label, and that label lands on whichever code sits
-// nearest the average. Saying "no clear reading" is the honest answer when
-// nothing has actually moved away from rest.
-const EMO_MIN_MOVE = 1.6;      // a deciding slice must move this many SD
-const NO_EMOTION = {
-  name: 'No clear reading', emoji: '\u{1F914}', color: '#8e8878',
-  valence: 'neutral', measured: true, code: null,
-  plain: 'Nothing has moved much from your resting level.'
-};
-function emotionMoved(scaled) {
-  if (!base.ready || !base.subSd) return true;
-  let peak = 0;
-  for (const i of VARY) peak = Math.max(peak, Math.abs(scaled[i] - KAO_MEAN[i]) / base.subSd[i]);
-  return peak >= EMO_MIN_MOVE;
 }
 
 (function standardise() {
@@ -724,8 +715,22 @@ function softBits(sub) {
   return sub.map(v => 1/(1 + Math.exp(-(v-thr)/soft)));
 }
 
+// How much to trust each deciding bit on THIS rig. A slice that wanders a
+// lot at rest relative to its own size cannot be read reliably, so its bit
+// counts for less. Computed once when calibration finishes.
+function bitWeights() {
+  const w = {};
+  for (const i of VARY) {
+    if (!base.subSd) { w[i] = 1; continue; }
+    const cv = base.subSd[i] / Math.max(base.subMean[i], 1e-6);   // noisiness
+    w[i] = 1 / (1 + cv / 0.08);
+  }
+  return w;
+}
+
 function kaoClassify(sub, zBeta, zRatio) {
   const b = softBits(sub);
+  const w = bitWeights();
   // Strength tuned empirically rather than guessed. Sweeping the weight
   // against per-sub-band noise from 2% to 18% showed a strong band layer
   // makes things WORSE than ignoring it (at 12% noise: 57% strong, 67%
@@ -743,9 +748,13 @@ function kaoClassify(sub, zBeta, zRatio) {
   const agree = (zm, ze) => (zm === null || !isFinite(zm)) ? 1
     : 0.80 + 0.20*Math.exp(-0.5*Math.pow((zm-ze)/2.5, 2));
   const scored = KAO.map(e => {
-    let s = 0;
-    for (const i of VARY) { const c = e.code[i] === '1' ? 1 : 0; s += c*b[i] + (1-c)*(1-b[i]); }
-    s /= VARY.length;
+    let s = 0, wt = 0;
+    for (const i of VARY) {
+      const c = e.code[i] === '1' ? 1 : 0;
+      s += w[i] * (c*b[i] + (1-c)*(1-b[i]));
+      wt += w[i];
+    }
+    s /= (wt || 1);
     return { e, s: s * agree(zBeta, e.fBetaZ) * agree(zRatio, e.fRatioZ) };
   });
   scored.sort((x,y) => y.s - x.s);
@@ -939,21 +948,19 @@ function analyze() {
   el('statValence').textContent = zBeta >= 0.6 ? 'positive' : zBeta <= -0.6 ? 'negative' : 'neutral';
   const v = kaoClassify(scaled, zBeta, zRatio);
   lastBits = v.bits;
-  const e = emotionMoved(scaled) ? v.emo : NO_EMOTION;
+  const e = v.emo;
 
   if (e.name === curEmo.label) { pendingLabel = null; pendingCount = 0; }
   else if (e.name === pendingLabel) pendingCount++;
   else { pendingLabel = e.name; pendingCount = 1; }
 
   if (e.name === curEmo.label || pendingCount >= HOLD_FRAMES) {
-    const noEmo = e === NO_EMOTION;
     const conf = Math.max(0.2, Math.min(0.97,
       (0.5 + 0.5*Math.min(1, (v.score-0.5)/0.45)) * Math.min(1, 0.55 + v.margin*2.5)));
     curEmo = {
       emoji: e.emoji, label: e.name, color: e.color, conf, bp: bps, z,
-      code: noEmo ? 'none' : KAO.find(k => k.name === e.name).code,
+      code: KAO.find(k => k.name === e.name).code,
       desc: e.plain,
-      noEmo,
       tech: (e.valence === 'positive' ? 'Positive' : 'Negative') + ' emotion. ' +
             (e.measured ? 'Energy table published in Kao et al. Tables 1-4.'
                         : 'Reconstructed from the paper\u2019s Table 6 code; no energy table published.')
@@ -998,7 +1005,7 @@ function updateHUD() {
   el('techLine').textContent = e.tech || '';
 
   const cl = el('codeLine');
-  if (e.code && e.code !== 'none' && lastBits) {
+  if (e.code && lastBits) {
     const mine = lastBits.map(v => v >= 0.5 ? '1' : '0').join('');
     const grp = str => str.slice(0,4)+' '+str.slice(4,8)+' '+str.slice(8,13)+' '+str.slice(13);
     cl.innerHTML = 'yours &nbsp;<b>' + grp(mine) + '</b><br>' + e.label.toLowerCase() + '&nbsp; ' + grp(e.code);
