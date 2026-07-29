@@ -452,12 +452,19 @@ const KAO_MEAN = (() => {
 function toKaoScale(sub) {
   if (!base.ready || !base.subMean) return sub;
   const out = new Array(NSUB);
-  let tot = 0;
-  for (let i = 0; i < NSUB; i++) {
+  for (let i = 0; i < NSUB; i++)
     out[i] = Math.max(1e-4, sub[i] - base.subMean[i] + KAO_MEAN[i]);
-    tot += out[i];
-  }
+
+  let tot = 0;
+  for (let i = 0; i < NSUB; i++) tot += out[i];
   for (let i = 0; i < NSUB; i++) out[i] /= tot;
+
+  // NOTE: rescaling each zone to Kao's zone total was tried here, to stop
+  // arousal-driven band shifts dragging the code. It made mild stress read
+  // correctly as "no clear reading", but cost 11 points of real-emotion
+  // accuracy (76% -> 65%) and broke a demo phase, so it was removed.
+  // Strong arousal biasing the code toward Joyful is a genuine limit of
+  // applying a fine absolute code to a signal whose balance is moving.
   return out;
 }
 
@@ -920,7 +927,11 @@ function analyze() {
   el('statState').textContent = curState;
 
   const scaled = toKaoScale(lastSub);
-  const bf = bandFeatures(scaled);
+  // Band features come from the RAW spectrum, not the rescaled one. They are
+  // already baseline-relative (z-scored against your own resting level), so
+  // they must be measured on the same scale the baseline was. Rescaling is
+  // only needed for the absolute 4% threshold in the code matching.
+  const bf = bandFeatures(lastSub);
   const zBeta  = (bf.beta  - base.fbS.m) / Math.max(base.fbS.sd,  0.004);
   const zRatio = (bf.ratio - base.frS.m) / Math.max(base.frS.sd, 0.020);
   lastVA = { valence: zBeta, arousal: zRatio };
