@@ -426,6 +426,58 @@ KAO.forEach(e => {
   const f = bandFeatures(e.prof);
   e.fBeta = f.beta; e.fRatio = f.ratio;
 });
+// Mean sub-band profile across the eight emotions. This is the shape Kao's
+// equipment produced for an "average" emotion, and it is the reference the
+// 4% threshold was implicitly calibrated against.
+const KAO_MEAN = (() => {
+  const m = new Array(NSUB).fill(0);
+  for (const e of KAO) for (let i = 0; i < NSUB; i++) m[i] += e.prof[i] / KAO.length;
+  return m;
+})();
+
+// Re-express a live reading on Kao's scale.
+//
+// The 4% rule is an ABSOLUTE threshold, calibrated on Kao's equipment and
+// montage. Different hardware produces a differently shaped spectrum - EEG
+// power falls as 1/f, so a raw reading piles energy into the lowest slices
+// and looks nothing like his tables. The consequence is that whichever
+// emotion code happens to match your hardware's shape wins constantly,
+// whatever the subject is feeling.
+//
+// So the reading is shifted by how far the subject's own resting spectrum
+// sits from Kao's average, then renormalised. At rest this lands on his
+// average; departures from rest map onto departures from his average. This
+// is Sisode's baseline-first method applied to Kao's features, and it is
+// what makes an absolute threshold transfer between different rigs.
+function toKaoScale(sub) {
+  if (!base.ready || !base.subMean) return sub;
+  const out = new Array(NSUB);
+  let tot = 0;
+  for (let i = 0; i < NSUB; i++) {
+    out[i] = Math.max(1e-4, sub[i] - base.subMean[i] + KAO_MEAN[i]);
+    tot += out[i];
+  }
+  for (let i = 0; i < NSUB; i++) out[i] /= tot;
+  return out;
+}
+
+// Kao's method has no neutral - it always names one of eight, so a calm
+// subject still gets a label, and that label lands on whichever code sits
+// nearest the average. Saying "no clear reading" is the honest answer when
+// nothing has actually moved away from rest.
+const EMO_MIN_MOVE = 1.6;      // a deciding slice must move this many SD
+const NO_EMOTION = {
+  name: 'No clear reading', emoji: '\u{1F914}', color: '#8e8878',
+  valence: 'neutral', measured: true, code: null,
+  plain: 'Nothing has moved much from your resting level.'
+};
+function emotionMoved(scaled) {
+  if (!base.ready || !base.subSd) return true;
+  let peak = 0;
+  for (const i of VARY) peak = Math.max(peak, Math.abs(scaled[i] - KAO_MEAN[i]) / base.subSd[i]);
+  return peak >= EMO_MIN_MOVE;
+}
+
 (function standardise() {
   for (const k of ['fBeta','fRatio']) {
     let m = 0; for (const e of KAO) m += e[k];
@@ -551,7 +603,7 @@ let emoHist = [];
 let frames = 0, artifacts = 0, srCount = 0, srTimer = Date.now(), lastPktNum = null, baseTick = 0;
 let port = null, reader = null, animId = null, needsRedraw = true;
 let firmwareLeadOff = false, qualityLeadOff = false, leadOffReason = '';
-let base = { frames: [], p2p: [], delta: [], fb: [], fr: [], tr: [], trK: TRANSIENT_FLOOR, p2pMed: 1, deltaMax: DELTA_ARTIFACT, mean: null, sd: null, ready: false };
+let base = { frames: [], p2p: [], delta: [], fb: [], fr: [], tr: [], sub: [], subMean: null, trK: TRANSIENT_FLOOR, p2pMed: 1, deltaMax: DELTA_ARTIFACT, mean: null, sd: null, ready: false };
 
 // ════════════════════════════════════════════════════════════════
 // DSP
@@ -732,6 +784,7 @@ function addBaselineFrame(cb, p2p, deltaShare, bf, trScore) {
   base.fb.push(bf.beta);
   base.fr.push(bf.ratio);
   base.tr.push(trScore);
+  base.sub.push(lastSub.slice());
   if (base.frames.length < baseFrames) return;
 
   base.mean = {}; base.sd = {};
@@ -755,6 +808,15 @@ function addBaselineFrame(cb, p2p, deltaShare, bf, trScore) {
   };
   base.fbS = stats(base.fb);
   base.frS = stats(base.fr);
+  // the subject's own resting spectrum, averaged over calibration
+  base.subMean = new Array(NSUB).fill(0);
+  for (const fr of base.sub) for (let i = 0; i < NSUB; i++) base.subMean[i] += fr[i] / base.sub.length;
+  // How much each deciding slice normally wanders while you sit still.
+  // Anything smaller than this is not an emotion, it is noise.
+  base.subSd = new Array(NSUB).fill(0);
+  for (const fr of base.sub)
+    for (let i = 0; i < NSUB; i++) base.subSd[i] += Math.pow(fr[i]-base.subMean[i], 2)/Math.max(1, base.sub.length-1);
+  for (let i = 0; i < NSUB; i++) base.subSd[i] = Math.max(Math.sqrt(base.subSd[i]), 0.0015);
   // Adaptive blink bar: the median resists the odd blink that slipped into
   // the baseline, so a contaminated calibration cannot raise the bar.
   // Set from the highest score seen at rest, not the median. The median
@@ -857,27 +919,30 @@ function analyze() {
   curState = stateOf(z);
   el('statState').textContent = curState;
 
-  const bf = bandFeatures(lastSub);
+  const scaled = toKaoScale(lastSub);
+  const bf = bandFeatures(scaled);
   const zBeta  = (bf.beta  - base.fbS.m) / Math.max(base.fbS.sd,  0.004);
   const zRatio = (bf.ratio - base.frS.m) / Math.max(base.frS.sd, 0.020);
   lastVA = { valence: zBeta, arousal: zRatio };
   el('statArousal').textContent = (zRatio>=0?'+':'') + zRatio.toFixed(1);
   el('statValence').textContent = zBeta >= 0.6 ? 'positive' : zBeta <= -0.6 ? 'negative' : 'neutral';
-  const v = kaoClassify(lastSub, zBeta, zRatio);
+  const v = kaoClassify(scaled, zBeta, zRatio);
   lastBits = v.bits;
-  const e = v.emo;
+  const e = emotionMoved(scaled) ? v.emo : NO_EMOTION;
 
   if (e.name === curEmo.label) { pendingLabel = null; pendingCount = 0; }
   else if (e.name === pendingLabel) pendingCount++;
   else { pendingLabel = e.name; pendingCount = 1; }
 
   if (e.name === curEmo.label || pendingCount >= HOLD_FRAMES) {
+    const noEmo = e === NO_EMOTION;
     const conf = Math.max(0.2, Math.min(0.97,
       (0.5 + 0.5*Math.min(1, (v.score-0.5)/0.45)) * Math.min(1, 0.55 + v.margin*2.5)));
     curEmo = {
       emoji: e.emoji, label: e.name, color: e.color, conf, bp: bps, z,
-      code: KAO.find(k => k.name === e.name).code,
+      code: noEmo ? 'none' : KAO.find(k => k.name === e.name).code,
       desc: e.plain,
+      noEmo,
       tech: (e.valence === 'positive' ? 'Positive' : 'Negative') + ' emotion. ' +
             (e.measured ? 'Energy table published in Kao et al. Tables 1-4.'
                         : 'Reconstructed from the paper\u2019s Table 6 code; no energy table published.')
@@ -922,7 +987,7 @@ function updateHUD() {
   el('techLine').textContent = e.tech || '';
 
   const cl = el('codeLine');
-  if (e.code && lastBits) {
+  if (e.code && e.code !== 'none' && lastBits) {
     const mine = lastBits.map(v => v >= 0.5 ? '1' : '0').join('');
     const grp = str => str.slice(0,4)+' '+str.slice(4,8)+' '+str.slice(8,13)+' '+str.slice(13);
     cl.innerHTML = 'yours &nbsp;<b>' + grp(mine) + '</b><br>' + e.label.toLowerCase() + '&nbsp; ' + grp(e.code);
@@ -1258,7 +1323,7 @@ async function readSerial() {
 }
 
 function recalibrate() {
-  base = { frames:[], p2p:[], delta:[], fb:[], fr:[], tr:[], trK:TRANSIENT_FLOOR, p2pMed:1, deltaMax:DELTA_ARTIFACT, mean:null, sd:null, ready:false };
+  base = { frames:[], p2p:[], delta:[], fb:[], fr:[], tr:[], sub:[], subMean:null, trK:TRANSIENT_FLOOR, p2pMed:1, deltaMax:DELTA_ARTIFACT, mean:null, sd:null, ready:false };
   subSmooth = null; bandSmooth = null; baseTick = 0; artifacts = 0;
   rejectLog = []; consecutiveRejects = 0;
   pendingLabel = null; pendingCount = 0; emoHist = [];
@@ -1281,7 +1346,7 @@ async function stopAll() {
   rejectLog = []; consecutiveRejects = 0;
   pendingLabel = null; pendingCount = 0; emoHist = []; curState = '\u2014';
   firmwareLeadOff = false; qualityLeadOff = false; leadOffReason = '';
-  base = { frames:[], p2p:[], delta:[], fb:[], fr:[], tr:[], trK:TRANSIENT_FLOOR, p2pMed:1, deltaMax:DELTA_ARTIFACT, mean:null, sd:null, ready:false };
+  base = { frames:[], p2p:[], delta:[], fb:[], fr:[], tr:[], sub:[], subMean:null, trK:TRANSIENT_FLOOR, p2pMed:1, deltaMax:DELTA_ARTIFACT, mean:null, sd:null, ready:false };
   curEmo = { emoji:'\u{1F9E0}', label:'Ready when you are', color:'#8e8878', conf:0, bp:null, z:null, code:null,
              desc:'Press Connect to use your headband, or Try demo to watch it work.' };
 
