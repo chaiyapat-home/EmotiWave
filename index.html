@@ -231,7 +231,6 @@
         <div class="stat"><b id="statArt">0</b><span>Blinks skipped</span></div>
         <div class="stat"><b id="statMode">&mdash;</b><span>Mode</span></div>
         <div class="stat"><b id="statArousal">&mdash;</b><span>Arousal (SD)</span></div>
-        <div class="stat"><b id="statValence">&mdash;</b><span>Valence</span></div>
       </div>
       <p style="margin-top:12px" id="techLine"></p>
       <button class="btn" id="recalBtn" onclick="recalibrate()" disabled style="margin-top:10px">Redo baseline</button>
@@ -505,6 +504,7 @@ const SD_FLOOR = 0.10;             // on the log scale
 // z-scores come out smaller - the old bar was never reached and the state
 // sat on Neutral permanently.
 const Z_LEAVE_NEUTRAL = 1.7;
+
 const TEMPLATES = [
   { label:'Stressed', w:{theta:-0.2, alpha:-0.6, beta:0.8,  gamma:0.8}  },
   { label:'Excited',  w:{theta:-0.3, alpha:0.1,  beta:0.2,  gamma:1.0}  },
@@ -945,9 +945,21 @@ function analyze() {
   const bf = bandFeatures(lastSub);
   const zBeta  = (bf.beta  - base.fbS.m) / Math.max(base.fbS.sd,  0.004);
   const zRatio = (bf.ratio - base.frS.m) / Math.max(base.frS.sd, 0.020);
+  // Valence is deliberately NOT displayed.
+  //
+  // Beta share and the beta/alpha ratio correlate at 0.947 across Kao's eight
+  // emotions - 90% of beta's variation is arousal, not pleasantness. His
+  // valence finding came from pairs matched for arousal, so it only holds when
+  // arousal is held still. Shown raw, this readout called a stressed subject
+  // "positive", because stress raises beta.
+  //
+  // Subtracting the arousal component was tried and was worse: the 0.947 figure
+  // lives in Kao's data space, not in a subject's z-space where the two have
+  // completely different spreads, so the correction over-shot and reversed
+  // every reading. Beta is still used inside the classifier, where it is
+  // weighted gently and has been tested, but it is not reported as valence.
   lastVA = { valence: zBeta, arousal: zRatio };
   el('statArousal').textContent = (zRatio>=0?'+':'') + zRatio.toFixed(1);
-  el('statValence').textContent = zBeta >= 0.6 ? 'positive' : zBeta <= -0.6 ? 'negative' : 'neutral';
   const v = kaoClassify(scaled, zBeta, zRatio);
   lastBits = v.bits;
   const e = v.emo;
@@ -1382,7 +1394,6 @@ async function stopAll() {
   el('statState').textContent = '\u2014';
   el('statMode').textContent = '\u2014';
   el('statArousal').textContent = '\u2014';
-  el('statValence').textContent = '\u2014';
   el('calBar').style.display = 'none';
   el('calFill').style.width = '0%';
   el('recalBtn').disabled = true;
