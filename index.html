@@ -94,15 +94,19 @@
   .band-val{font-size:13px;font-weight:500;text-align:right;font-variant-numeric:tabular-nums}
 
   /* ---- timeline ---- */
-  .timeline{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
-  .timeline::-webkit-scrollbar{display:none}
-  .pill{display:flex;align-items:center;gap:6px;padding:6px 13px;border-radius:99px;
-        border:1px solid var(--border);background:var(--bg2);white-space:nowrap;
-        font-size:13px;color:var(--text2);flex-shrink:0}
-  .pill.now{background:var(--card);color:var(--text);font-weight:500}
-  .pill small{color:var(--text3);font-size:11px}
-  .pill .st{color:var(--accent);font-size:12px}
-  .pill .sep{color:var(--text3);font-size:10px;vertical-align:1px}
+  .timeline{display:flex;flex-direction:column;max-height:290px;overflow-y:auto;
+            scrollbar-width:thin}
+  .hrow{display:grid;grid-template-columns:26px 1fr auto 46px;align-items:center;
+        gap:12px;padding:10px 2px;border-bottom:1px solid var(--border)}
+  .hrow:last-child{border-bottom:none}
+  .hrow .em{font-size:19px;line-height:1;text-align:center}
+  .hrow .nm{font-size:14px;color:var(--text2)}
+  .hrow .st{font-size:12.5px;color:var(--accent);white-space:nowrap}
+  .hrow .du{font-size:12px;color:var(--text3);text-align:right;
+            font-variant-numeric:tabular-nums}
+  .hrow.now .nm{color:var(--text);font-weight:600}
+  .hrow.now .du{color:var(--text2)}
+  .hempty{padding:10px 2px;font-size:13.5px;color:var(--text3)}
 
   /* ---- collapsible ---- */
   details{background:var(--card);border:1px solid var(--border);border-radius:var(--r);
@@ -210,7 +214,7 @@
 
   <div class="card">
     <h2>History</h2>
-    <div class="timeline" id="timeline"><div class="pill" style="color:var(--text3)">Nothing yet</div></div>
+    <div class="timeline" id="timeline"><div class="hempty">Nothing recorded yet</div></div>
   </div>
 
   <details ontoggle="panelOpened()">
@@ -1045,19 +1049,24 @@ function updateHUD() {
   const tl = el('timeline');
   tl.innerHTML = '';
   if (!emoHist.length) {
-    const p = document.createElement('div');
-    p.className = 'emo-pill'; p.style.color = 'var(--text3)';
-    p.textContent = 'Nothing recorded yet'; tl.appendChild(p); return;
+    const d = document.createElement('div');
+    d.className = 'hempty';
+    d.textContent = 'Nothing recorded yet';
+    tl.appendChild(d);
+    return;
   }
-  emoHist.forEach((h,i) => {
-    const p = document.createElement('div');
-    p.className = 'emo-pill' + (i===0 ? ' latest' : '');
-    if (i===0) p.style.borderColor = h.color;
-    const end = i===0 ? Date.now() : emoHist[i-1].t;
-    const st = h.state ? ' <span class="sep">\u2022</span> <span class="st">' + h.state + '</span>' : '';
-    p.innerHTML = h.emoji + ' ' + h.label + st +
-                  ' <small>' + Math.max(1, Math.round((end-h.t)/1000)) + 's</small>';
-    tl.appendChild(p);
+  emoHist.forEach((h, i) => {
+    const r = document.createElement('div');
+    r.className = 'hrow' + (i === 0 ? ' now' : '');
+    const end = i === 0 ? Date.now() : emoHist[i-1].t;
+    const secs = Math.max(1, Math.round((end - h.t) / 1000));
+    const dur = secs >= 60 ? Math.floor(secs/60) + 'm ' + (secs%60) + 's' : secs + 's';
+    r.innerHTML =
+      '<span class="em">' + h.emoji + '</span>' +
+      '<span class="nm" style="color:' + (i === 0 ? h.color : '') + '">' + h.label + '</span>' +
+      '<span class="st">' + (h.state || '') + '</span>' +
+      '<span class="du">' + dur + '</span>';
+    tl.appendChild(r);
   });
 }
 
