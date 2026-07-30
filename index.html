@@ -84,6 +84,17 @@
   .quality.bad::before{background:var(--bad)}
   .quality.bad{color:var(--bad)}
   .quality .sr{margin-left:auto;font-size:12px;color:var(--text3)}
+  .calib{display:none;background:var(--card);border:1px solid var(--border);
+         border-left:4px solid var(--accent);border-radius:var(--r);
+         padding:.9rem 1.15rem;margin-bottom:12px}
+  .calib.on{display:block}
+  .calib-top{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+  .calib-txt{font-size:14.5px;font-weight:600;color:var(--accent)}
+  .calib-num{font-size:13px;color:var(--text2);font-variant-numeric:tabular-nums}
+  .calib-bar{height:6px;background:var(--bg3);border-radius:99px;margin-top:9px;overflow:hidden}
+  .calib-bar i{display:block;height:100%;width:0;border-radius:99px;
+               background:var(--accent);transition:width .3s}
+  .calib-hint{font-size:12px;color:var(--text3);margin-top:7px}
 
   /* ---- bands ---- */
   h2{font-size:13px;font-weight:600;color:var(--accent);text-transform:uppercase;
@@ -99,12 +110,13 @@
   /* ---- timeline ---- */
   .timeline{display:flex;flex-direction:column;max-height:290px;overflow-y:auto;
             scrollbar-width:thin}
-  .hrow{display:grid;grid-template-columns:1fr auto 22px 52px;align-items:center;
-        gap:12px;padding:10px 2px;border-bottom:1px solid var(--border)}
+  .hrow{display:grid;grid-template-columns:24px 1fr auto 52px;align-items:center;
+        gap:11px;padding:10px 2px;border-bottom:1px solid var(--border)}
+  .hrow .sem{font-size:17px;line-height:1;text-align:center}
   .hrow:last-child{border-bottom:none}
   .hrow .st{font-size:15px;font-weight:500;color:var(--text)}
   .hrow .nm{font-size:12.5px;color:var(--text3);white-space:nowrap}
-  .hrow .em{font-size:16px;line-height:1;text-align:center;opacity:.85}
+  .hrow .nm{white-space:nowrap}
   .hrow .du{font-size:12px;color:var(--text3);text-align:right;
             font-variant-numeric:tabular-nums}
   .hrow.now .st{font-weight:700;color:var(--accent)}
@@ -181,7 +193,17 @@
     <span class="sr" id="statSR"></span>
   </div>
 
+  <div class="calib" id="calBar">
+    <div class="calib-top">
+      <span class="calib-txt" id="calibTxt">Learning your resting brainwaves</span>
+      <span class="calib-num" id="calibLeft"></span>
+    </div>
+    <div class="calib-bar"><i id="calFill"></i></div>
+    <div class="calib-hint">Sit still, eyes open, looking at one spot.</div>
+  </div>
+
   <div class="card hero">
+    <div class="hero-emoji" id="stateEmoji">&#129504;</div>
     <div class="hero-body">
       <div class="hero-head">
         <span class="kicker">Mental state</span>
@@ -189,7 +211,6 @@
       </div>
       <div class="hero-label" id="stateLine">&mdash;</div>
       <div class="hero-desc" id="stateDesc">Press Connect to use your headband, or Try demo to watch it work.</div>
-      <div class="meter" id="calBar" style="display:none"><i id="calFill" style="background:var(--accent)"></i></div>
     </div>
   </div>
 
@@ -515,6 +536,15 @@ const SD_FLOOR = 0.10;             // on the log scale
 // z-scores come out smaller - the old bar was never reached and the state
 // sat on Neutral permanently.
 const Z_LEAVE_NEUTRAL = 1.7;
+const STATE_EMOJI = {
+  'Neutral':  '\u3030\uFE0F',   // flat wave - nothing has moved
+  'Relaxed':  '\u{1F33F}',       // leaf
+  'Focused':  '\u{1F3AF}',       // target
+  'Drowsy':   '\u{1F4A4}',       // zzz
+  'Dreamy':   '\u{1F319}',       // crescent moon
+  'Stressed': '\u26A1',          // lightning
+  'Excited':  '\u2728',          // sparkles
+};
 const STATE_DESC = {
   'Neutral':  'Nothing has moved much from your resting level.',
   'Relaxed':  'Alpha is up \u2014 calm and settled.',
@@ -864,7 +894,7 @@ function addBaselineFrame(cb, p2p, deltaShare, bf, trScore) {
   const trMax = trSorted[trSorted.length - 1] || 0;
   base.trK = Math.max(TRANSIENT_FLOOR, trMax * 1.30);
   base.ready = true;
-  el('calBar').style.display = 'none';
+  el('calBar').className = 'calib';
   el('recalBtn').disabled = false;
 }
 
@@ -946,12 +976,13 @@ function analyze() {
   if (!base.ready) {
     addBaselineFrame(cb, p2p, bp.delta, bandFeatures(lastSub), trScore);
     const left = Math.max(0, baseFrames-base.frames.length)*baseStride/4/(demoMode?3:1);
-    curEmo = { emoji:'\u{1F9EA}', label:'Getting to know your brain', color:'#4b7ca8',
+    curEmo = { emoji:'\u{1F9EA}', label:'\u2014', color:'#8e8878',
                conf:0, bp:bps, z:null, code:null,
-               desc:'One of eight, from the published method.' };
-    el('stateLine').textContent = 'Calibrating';
-    el('stateDesc').textContent = 'Relax, keep your eyes open and look at one spot. About ' +
-                                  Math.ceil(left) + ' seconds left.';
+               desc:'Waiting for your baseline.' };
+    el('calibLeft').textContent = Math.ceil(left) + 's left';
+    el('stateEmoji').textContent = '\u{1F9EA}';
+    el('stateLine').textContent = '\u2014';
+    el('stateDesc').textContent = 'Waiting for your baseline.';
     needsRedraw = true; updateHUD();
     return;
   }
@@ -1039,6 +1070,7 @@ function updateHUD() {
   el('stateLine').style.color = (e.code && curState !== 'Neutral') ? 'var(--accent)' : '';
   el('emoDesc').textContent = e.desc;
   el('stateLine').textContent = e.code ? curState : '\u2014';
+  el('stateEmoji').textContent = e.code ? (STATE_EMOJI[curState] || '\u{1F9E0}') : '\u{1F9E0}';
   el('stateDesc').textContent = e.code
     ? (STATE_DESC[curState] || '')
     : 'Press Connect to use your headband, or Try demo to watch it work.';
@@ -1084,9 +1116,9 @@ function updateHUD() {
     const secs = Math.max(1, Math.round((end - h.t) / 1000));
     const dur = secs >= 60 ? Math.floor(secs/60) + 'm ' + (secs%60) + 's' : secs + 's';
     r.innerHTML =
+      '<span class="sem">' + (STATE_EMOJI[h.state] || '\u3030\uFE0F') + '</span>' +
       '<span class="st">' + (h.state || '\u2014') + '</span>' +
-      '<span class="nm">' + h.label + '</span>' +
-      '<span class="em">' + h.emoji + '</span>' +
+      '<span class="nm">' + h.emoji + ' ' + h.label + '</span>' +
       '<span class="du">' + dur + '</span>';
     tl.appendChild(r);
   });
@@ -1306,7 +1338,7 @@ async function startDemo() {
   await stopAll();
   demoMode = true; running = true;
   baseStride = 8; baseFrames = 15;          // 30 s of signal, 10 s of wall clock at 3x
-  el('calBar').style.display = 'block';
+  el('calBar').className = 'calib on';
   el('statMode').textContent = 'Demo 3x';
   el('connectBtn').className = 'btn';
   el('connectBtn').textContent = 'Stop';
@@ -1335,7 +1367,7 @@ async function handleConnect() {
     el('connectBtn').className = 'btn';
     el('connectBtn').textContent = 'Disconnect';
     el('demoBtn').disabled = true;
-    el('calBar').style.display = 'block';
+    el('calBar').className = 'calib on';
     renderLoop(); readSerial();
   } catch (err) {
     if (err.name === 'NotFoundError') return;
@@ -1392,7 +1424,7 @@ function recalibrate() {
   subSmooth = null; bandSmooth = null; baseTick = 0; artifacts = 0;
   rejectLog = []; consecutiveRejects = 0;
   pendingLabel = null; pendingCount = 0; emoHist = [];
-  el('calBar').style.display = 'block';
+  el('calBar').className = 'calib on';
   el('calFill').style.width = '0%';
   el('statArt').textContent = '0';
   el('recalBtn').disabled = true;
@@ -1415,6 +1447,7 @@ async function stopAll() {
   curEmo = { emoji:'\u{1F9E0}', label:'Ready when you are', color:'#8e8878', conf:0, bp:null, z:null, code:null,
              desc:'One of eight, from the published method.' };
   el('stateDesc').textContent = 'Press Connect to use your headband, or Try demo to watch it work.';
+  el('stateEmoji').textContent = '\u{1F9E0}';
 
   el('connectBtn').className = 'btn primary';
   el('connectBtn').textContent = 'Connect';
@@ -1426,7 +1459,7 @@ async function stopAll() {
   el('statState').textContent = '\u2014';
   el('statMode').textContent = '\u2014';
   el('statArousal').textContent = '\u2014';
-  el('calBar').style.display = 'none';
+  el('calBar').className = 'calib';
   el('calFill').style.width = '0%';
   el('recalBtn').disabled = true;
   updateLeadOff(); updateHUD(); drawWave(); drawSub();
