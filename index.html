@@ -101,6 +101,8 @@
         font-size:13px;color:var(--text2);flex-shrink:0}
   .pill.now{background:var(--card);color:var(--text);font-weight:500}
   .pill small{color:var(--text3);font-size:11px}
+  .pill .st{color:var(--accent);font-size:12px}
+  .pill .sep{color:var(--text3);font-size:10px;vertical-align:1px}
 
   /* ---- collapsible ---- */
   details{background:var(--card);border:1px solid var(--border);border-radius:var(--r);
@@ -207,7 +209,7 @@
   </div>
 
   <div class="card">
-    <h2>What you have felt</h2>
+    <h2>History</h2>
     <div class="timeline" id="timeline"><div class="pill" style="color:var(--text3)">Nothing yet</div></div>
   </div>
 
@@ -965,8 +967,8 @@ function analyze() {
             (e.measured ? 'Energy table published in Kao et al. Tables 1-4.'
                         : 'Reconstructed from the paper\u2019s Table 6 code; no energy table published.')
     };
-    if (!emoHist.length || emoHist[0].label !== e.name)
-      emoHist.unshift({ emoji:e.emoji, label:e.name, color:e.color, t:Date.now() });
+    if (!emoHist.length || emoHist[0].label !== e.name || emoHist[0].state !== curState)
+      emoHist.unshift({ emoji:e.emoji, label:e.name, color:e.color, state:curState, t:Date.now() });
     if (emoHist.length > 24) emoHist.pop();
     pendingLabel = null; pendingCount = 0;
   } else {
@@ -1040,7 +1042,9 @@ function updateHUD() {
     p.className = 'emo-pill' + (i===0 ? ' latest' : '');
     if (i===0) p.style.borderColor = h.color;
     const end = i===0 ? Date.now() : emoHist[i-1].t;
-    p.innerHTML = h.emoji+' '+h.label+' <small>'+Math.max(1,Math.round((end-h.t)/1000))+'s</small>';
+    const st = h.state ? ' <span class="sep">\u2022</span> <span class="st">' + h.state + '</span>' : '';
+    p.innerHTML = h.emoji + ' ' + h.label + st +
+                  ' <small>' + Math.max(1, Math.round((end-h.t)/1000)) + 's</small>';
     tl.appendChild(p);
   });
 }
